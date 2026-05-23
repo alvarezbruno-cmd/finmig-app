@@ -1,0 +1,43 @@
+export type Style = "storytelling" | "contrarian" | "tactical";
+
+export interface ReferencePost {
+  id: string;
+  content: string;
+  note?: string;
+  createdAt: number;
+}
+
+export interface Variation {
+  style: Style;
+  title: string;
+  post: string;
+}
+
+export interface HistoryEntry {
+  id: string;
+  topic: string;
+  sourceContent: string;
+  referenceIds: string[];
+  variations: Variation[];
+  createdAt: number;
+}
+
+export interface GenerateRequest {
+  topic: string;
+  sourceContent: string;
+  references: string[];
+}
+
+export interface GenerateResponse {
+  variations: Variation[];
+}
+
+export interface RewriteRequest {
+  fullPost: string;
+  snippet: string;
+  instruction: string;
+}
+
+export interface RewriteResponse {
+  rewritten: string;
+}
