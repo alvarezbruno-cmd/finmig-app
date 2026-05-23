@@ -35,6 +35,13 @@ export function PostCard({ variation, onChange }: Props) {
     setTimeout(() => setCopied(false), 1500);
   }
 
+  async function copyAndOpen(url: string) {
+    await navigator.clipboard.writeText(post);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+    window.open(url, "_blank", "noopener,noreferrer");
+  }
+
   function saveEdit() {
     onChange?.({ ...variation, post: draft });
     setEditing(false);
@@ -173,12 +180,28 @@ export function PostCard({ variation, onChange }: Props) {
       )}
 
       {!editing && (
-        <div className="mt-4 flex gap-2">
+        <div className="mt-4 flex flex-wrap gap-2">
           <button
             onClick={copy}
             className="rounded-md border border-[var(--color-border)] px-3 py-1.5 text-sm hover:bg-[var(--color-surface-2)]"
           >
             {copied ? "Copiado ✓" : "Copiar"}
+          </button>
+          <button
+            onClick={() =>
+              copyAndOpen("https://www.linkedin.com/feed/?shareActive=true")
+            }
+            className="rounded-md border border-[var(--color-border)] px-3 py-1.5 text-sm hover:bg-[var(--color-surface-2)]"
+            title="Copia o post e abre o compositor do LinkedIn — cole com Ctrl/Cmd+V"
+          >
+            Copiar + abrir LinkedIn
+          </button>
+          <button
+            onClick={() => copyAndOpen("https://publish.buffer.com/")}
+            className="rounded-md border border-[var(--color-border)] px-3 py-1.5 text-sm hover:bg-[var(--color-surface-2)]"
+            title="Copia o post e abre o Buffer — escolha o canal LinkedIn e cole"
+          >
+            Copiar + abrir Buffer
           </button>
           <button
             onClick={() => {
