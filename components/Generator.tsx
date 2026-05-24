@@ -92,15 +92,15 @@ export function Generator() {
 
         <label className="block">
           <div className="mb-1 text-sm text-[var(--color-text-dim)]">
-            Matéria-prima de conteúdo{" "}
+            Suas notas e ideias sobre o tópico{" "}
             <span className="text-xs">
-              (notas, transcrições, dados, exemplos — a IA usa como base)
+              (a IA absorve como combustível — nunca cita como fonte)
             </span>
           </div>
           <textarea
             value={sourceContent}
             onChange={(e) => setSourceContent(e.target.value)}
-            placeholder="Cole aqui notas, bullets, transcrição de áudio, dados...&#10;&#10;Quanto mais específico, melhor o post."
+            placeholder="Cole bullets, dados, histórias suas, trechos de leituras, exemplos...&#10;&#10;A IA vai escrever em primeira pessoa, como se as ideias fossem suas — sem citar artigos, autores ou estudos."
             className="min-h-[180px] w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm leading-relaxed outline-none focus:border-[var(--color-accent)]"
           />
         </label>

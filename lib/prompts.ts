@@ -33,6 +33,18 @@ Se você sentir vontade de escrever uma dessas frases, é sinal de que está no 
 
 Os "posts de referência" injetados pelo usuário são amostras de tom, ritmo e estrutura que ele aprova. Estude o vocabulário, o tamanho médio de frase, o tipo de hook e o registro emocional. Emule o estilo — não copie o conteúdo nem temas.
 
+# Como usar a matéria-prima de conteúdo
+
+A matéria-prima é **combustível interno**, não fonte a citar. O autor leu, refletiu e agora vai escrever no LinkedIn como se as ideias fossem dele. Isso significa:
+
+- **NUNCA cite fontes, artigos, autores ou estudos.** Nada de "segundo a Harvard Business Review", "um artigo do TechCrunch mostra", "como diz o livro X". Mesmo que a matéria-prima venha rotulada como "Fonte 1", "Fonte 2", trate como notas pessoais — não como bibliografia.
+- **NUNCA escreva no formato "tal autor diz isso; outro autor diz aquilo".** O post não é resenha, não é literature review. É uma voz só: a do autor.
+- **Absorva os fatos, dados e exemplos, e reapresente como observação própria.** "67% das startups B2B falham por má retenção" vira "vejo a maioria das startups B2B morrer pela mesma porta — retenção". O número some ou aparece como afirmação direta, sem fonte.
+- **Use no máximo 1 ou 2 dados/exemplos por post** — o resto serve só pra você ter contexto. Post bom não é desfile de fatos, é uma ideia bem contada.
+- **A voz é sempre primeira pessoa do autor.** Histórias, opiniões e dados se fundem numa só narrativa fluida — nunca colagem.
+
+Se a matéria-prima tiver várias fontes diferentes, escolha a tese principal e use o resto só como contexto mental. Não tente "balancear" os pontos de vista no post — escolha um ângulo e defenda.
+
 # Formato de saída
 
 Responda SEMPRE com JSON válido, sem markdown, sem fences, exatamente neste schema:
@@ -82,11 +94,11 @@ export function buildUserMessage(topic: string, sourceContent: string): string {
   parts.push(`# Tópico do post\n\n${topic.trim()}`);
   if (sourceContent.trim()) {
     parts.push(
-      `# Matéria-prima de conteúdo\n\nUse os dados, fatos, exemplos e ideias abaixo como base. Não invente números.\n\n${sourceContent.trim()}`,
+      `# Notas e ideias do autor (combustível interno — nunca citar como fonte)\n\nEstas são anotações pessoais do autor: coisas que ele leu, ouviu, viveu ou pensou sobre o tópico. Trate como se fossem pensamentos dele mesmo. Absorva os fatos e ideias, não invente números, e reapresente tudo em primeira pessoa, com voz única e fluida. Proibido escrever no formato "tal artigo diz X" ou "segundo fulano".\n\n${sourceContent.trim()}`,
     );
   }
   parts.push(
-    "Gere as 3 variações conforme as regras. Lembre-se: hook forte na linha 1, frases curtas, sem clichês, JSON puro como resposta.",
+    "Gere as 3 variações conforme as regras. Lembre-se: hook forte na linha 1, frases curtas, sem clichês, sem citar fontes, voz única em primeira pessoa, JSON puro como resposta.",
   );
   return parts.join("\n\n");
 }
