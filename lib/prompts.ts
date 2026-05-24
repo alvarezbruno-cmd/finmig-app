@@ -35,15 +35,18 @@ Os "posts de referência" injetados pelo usuário são amostras de tom, ritmo e 
 
 # Como usar a matéria-prima de conteúdo
 
-A matéria-prima é **combustível interno**, não fonte a citar. O autor leu, refletiu e agora vai escrever no LinkedIn como se as ideias fossem dele. Isso significa:
+A matéria-prima é o **substrato de ideias** do post. Pode conter notas pessoais do autor, dados de estudos, trechos de artigos, falas de outras pessoas — uma mistura. Sua tarefa é transformar tudo em **um único texto fluido em primeira pessoa**, com voz coesa, **sem comprometer a honestidade**.
 
-- **NUNCA cite fontes, artigos, autores ou estudos.** Nada de "segundo a Harvard Business Review", "um artigo do TechCrunch mostra", "como diz o livro X". Mesmo que a matéria-prima venha rotulada como "Fonte 1", "Fonte 2", trate como notas pessoais — não como bibliografia.
-- **NUNCA escreva no formato "tal autor diz isso; outro autor diz aquilo".** O post não é resenha, não é literature review. É uma voz só: a do autor.
-- **Absorva os fatos, dados e exemplos, e reapresente como observação própria.** "67% das startups B2B falham por má retenção" vira "vejo a maioria das startups B2B morrer pela mesma porta — retenção". O número some ou aparece como afirmação direta, sem fonte.
-- **Use no máximo 1 ou 2 dados/exemplos por post** — o resto serve só pra você ter contexto. Post bom não é desfile de fatos, é uma ideia bem contada.
-- **A voz é sempre primeira pessoa do autor.** Histórias, opiniões e dados se fundem numa só narrativa fluida — nunca colagem.
+Princípios:
 
-Se a matéria-prima tiver várias fontes diferentes, escolha a tese principal e use o resto só como contexto mental. Não tente "balancear" os pontos de vista no post — escolha um ângulo e defenda.
+- **Sintetize, não enumere.** Nunca escreva "tal artigo diz X; outro autor diz Y; um estudo aponta Z". Isso é resenha, não post. Funde as ideias em um único argumento contínuo, com o autor como narrador.
+- **Atribua quando for honesto fazê-lo, mas de forma leve e integrada.** Se uma estatística ou frase específica veio de fora, dá pra dizer "li um estudo da McKinsey que mostra X" ou "como o Naval falou uma vez, Y" — mas use isso **no máximo 1 vez no post**, integrado ao fluxo, não como abertura nem como bloco separado. A regra é: a citação serve ao argumento, nunca o estrutura.
+- **Não invente fontes nem nomes.** Se a matéria-prima não traz a fonte de um dado, não invente uma. Use o dado como afirmação direta ("vejo que 7 em cada 10 startups B2B morrem por isso") ou deixe genérico ("há um padrão claro").
+- **Histórias e opiniões do autor não precisam de atribuição.** Se a matéria-prima diz "minha experiência: trabalhei com 3 SaaS", isso é dele — escreva em primeira pessoa direta, sem rodeios.
+- **Use no máximo 1 ou 2 dados/exemplos no post.** O resto da matéria-prima serve só como contexto mental pra IA. Post bom não é desfile de fatos, é uma ideia bem contada.
+- **A voz é sempre primeira pessoa do autor.** Fatos externos, citações e histórias se fundem na narrativa dele — nunca aparecem como colagem.
+
+Se a matéria-prima tiver várias ideias diferentes, escolha **uma tese central** e use o resto só pra dar densidade. Não tente cobrir todos os pontos de vista — escolha um ângulo e defenda.
 
 # Formato de saída
 
@@ -94,11 +97,11 @@ export function buildUserMessage(topic: string, sourceContent: string): string {
   parts.push(`# Tópico do post\n\n${topic.trim()}`);
   if (sourceContent.trim()) {
     parts.push(
-      `# Notas e ideias do autor (combustível interno — nunca citar como fonte)\n\nEstas são anotações pessoais do autor: coisas que ele leu, ouviu, viveu ou pensou sobre o tópico. Trate como se fossem pensamentos dele mesmo. Absorva os fatos e ideias, não invente números, e reapresente tudo em primeira pessoa, com voz única e fluida. Proibido escrever no formato "tal artigo diz X" ou "segundo fulano".\n\n${sourceContent.trim()}`,
+      `# Matéria-prima\n\nMistura de notas, fatos, dados e ideias que o autor reuniu sobre o tópico. Pode conter conteúdo dele mesmo e de fontes externas. Sintetize tudo num único post fluido, em primeira pessoa: nunca enumere ("artigo X diz; autor Y diz"), nunca invente fontes, e quando precisar atribuir algo a alguém de fora, faça isso uma vez só, integrado ao argumento, sem virar bloco separado.\n\n${sourceContent.trim()}`,
     );
   }
   parts.push(
-    "Gere as 3 variações conforme as regras. Lembre-se: hook forte na linha 1, frases curtas, sem clichês, sem citar fontes, voz única em primeira pessoa, JSON puro como resposta.",
+    "Gere as 3 variações conforme as regras. Lembre-se: hook forte na linha 1, frases curtas, sem clichês, voz única em primeira pessoa, síntese fluida (não enumeração de fontes), JSON puro como resposta.",
   );
   return parts.join("\n\n");
 }
