@@ -60,8 +60,14 @@ export function PostCard({ variation, onChange }: Props) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ fullPost: draft, snippet, instruction }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Erro ao reescrever");
+      const raw = await res.text();
+      let data: { rewritten?: string; error?: string };
+      try {
+        data = JSON.parse(raw);
+      } catch {
+        throw new Error("Resposta inesperada do servidor. Tente de novo em 1 minuto.");
+      }
+      if (!res.ok || !data.rewritten) throw new Error(data.error ?? "Erro ao reescrever");
       const next =
         draft.slice(0, selection.start) + data.rewritten + draft.slice(selection.end);
       setDraft(next);

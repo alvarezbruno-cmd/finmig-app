@@ -52,6 +52,31 @@ export const references = {
       .map((id) => all.find((r) => r.id === id))
       .filter((r): r is ReferencePost => r != null);
   },
+  exportAll(): string {
+    return JSON.stringify(read<ReferencePost>(REF_KEY), null, 2);
+  },
+  importMany(json: string): number {
+    const parsed = JSON.parse(json) as ReferencePost[];
+    if (!Array.isArray(parsed)) throw new Error("Formato inválido.");
+    const existing = read<ReferencePost>(REF_KEY);
+    const byId = new Map(existing.map((r) => [r.id, r]));
+    let added = 0;
+    for (const item of parsed) {
+      if (!item?.content) continue;
+      const id = item.id ?? crypto.randomUUID();
+      if (!byId.has(id)) {
+        byId.set(id, {
+          id,
+          content: String(item.content),
+          note: item.note,
+          createdAt: item.createdAt ?? Date.now(),
+        });
+        added++;
+      }
+    }
+    write(REF_KEY, [...byId.values()]);
+    return added;
+  },
 };
 
 export const history = {

@@ -9,7 +9,6 @@ export function Generator() {
   const [topic, setTopic] = useState("");
   const [sourceContent, setSourceContent] = useState("");
   const [refs, setRefs] = useState<ReferencePost[]>([]);
-  const [selectedRefIds, setSelectedRefIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [variations, setVariations] = useState<Variation[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -17,19 +16,6 @@ export function Generator() {
   useEffect(() => {
     setRefs(references.list());
   }, []);
-
-  function toggleRef(id: string) {
-    setSelectedRefIds((curr) =>
-      curr.includes(id) ? curr.filter((x) => x !== id) : [...curr, id],
-    );
-  }
-
-  function selectAllRefs() {
-    setSelectedRefIds(refs.map((r) => r.id));
-  }
-  function clearRefs() {
-    setSelectedRefIds([]);
-  }
 
   async function generate() {
     if (!topic.trim()) {
@@ -40,25 +26,35 @@ export function Generator() {
     setLoading(true);
     setVariations(null);
     try {
-      const selectedContents = references
-        .getMany(selectedRefIds)
-        .map((r) => r.content);
+      const allRefs = references.list();
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           topic,
           sourceContent,
-          references: selectedContents,
+          references: allRefs.map((r) => r.content),
         }),
       });
-      const data = await res.json();
+
+      const raw = await res.text();
+      let data: { variations?: Variation[]; error?: string };
+      try {
+        data = JSON.parse(raw);
+      } catch {
+        throw new Error(
+          "O servidor respondeu em formato inesperado. O deploy pode estar atualizando — aguarde 1 minuto e tente de novo.",
+        );
+      }
+
       if (!res.ok) throw new Error(data.error ?? "Erro ao gerar");
+      if (!data.variations) throw new Error("Resposta sem variações.");
+
       setVariations(data.variations);
       history.add({
         topic,
         sourceContent,
-        referenceIds: selectedRefIds,
+        referenceIds: allRefs.map((r) => r.id),
         variations: data.variations,
       });
     } catch (err) {
@@ -105,59 +101,23 @@ export function Generator() {
           />
         </label>
 
-        <div>
-          <div className="mb-2 flex items-center justify-between">
-            <div className="text-sm text-[var(--color-text-dim)]">
-              Posts de referência (estilo a emular) — {selectedRefIds.length} selecionados
-            </div>
-            <div className="flex gap-2 text-xs">
-              <button
-                onClick={selectAllRefs}
-                className="text-[var(--color-accent)] hover:underline"
-              >
-                Selecionar todos
-              </button>
-              <span className="text-[var(--color-border)]">·</span>
-              <button onClick={clearRefs} className="text-[var(--color-text-dim)] hover:underline">
-                Limpar
-              </button>
-            </div>
-          </div>
+        <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-text-dim)]">
           {refs.length === 0 ? (
-            <div className="rounded-md border border-dashed border-[var(--color-border)] p-4 text-center text-sm text-[var(--color-text-dim)]">
-              Nenhuma referência ainda. Adicione posts que você gosta em{" "}
+            <>
+              Nenhuma referência de estilo cadastrada. Adicione posts que você admira em{" "}
               <a href="/library" className="text-[var(--color-accent)] underline">
                 Referências
               </a>{" "}
-              para emular o estilo.
-            </div>
+              — a IA usa todas para reproduzir sua voz.
+            </>
           ) : (
-            <div className="grid gap-2 sm:grid-cols-2">
-              {refs.map((r) => {
-                const selected = selectedRefIds.includes(r.id);
-                return (
-                  <button
-                    key={r.id}
-                    onClick={() => toggleRef(r.id)}
-                    className={
-                      "rounded-md border p-3 text-left text-xs transition " +
-                      (selected
-                        ? "border-[var(--color-accent)] bg-[var(--color-surface-2)]"
-                        : "border-[var(--color-border)] bg-[var(--color-surface)] hover:border-[var(--color-text-dim)]")
-                    }
-                  >
-                    {r.note && (
-                      <div className="mb-1 font-medium text-[var(--color-text)]">
-                        {r.note}
-                      </div>
-                    )}
-                    <div className="line-clamp-3 text-[var(--color-text-dim)]">
-                      {r.content}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
+            <>
+              <span className="text-[var(--color-ok)]">{refs.length}</span> referência
+              {refs.length === 1 ? "" : "s"} de estilo serão usadas em toda geração.{" "}
+              <a href="/library" className="text-[var(--color-accent)] underline">
+                Gerenciar
+              </a>
+            </>
           )}
         </div>
 
