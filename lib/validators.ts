@@ -46,8 +46,7 @@ export interface ValidationIssue {
 }
 
 const MAX_CHARS = 3000;
-const IDEAL_MIN = 1100;
-const IDEAL_MAX = 2200;
+const IDEAL_MIN = 500;
 const EMOJI_REGEX =
   /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{1F000}-\u{1F02F}\u{1F0A0}-\u{1F0FF}]/gu;
 
@@ -76,13 +75,7 @@ export function validatePost(post: string): ValidationIssue[] {
     issues.push({
       type: "length",
       severity: "warning",
-      message: `${post.length} chars — curto demais. Posts de alta performance ficam entre ${IDEAL_MIN} e ${IDEAL_MAX}.`,
-    });
-  } else if (post.length > IDEAL_MAX) {
-    issues.push({
-      type: "length",
-      severity: "warning",
-      message: `${post.length} chars — longo. Considere encurtar para ${IDEAL_MAX} ou menos.`,
+      message: `${post.length} chars — bem curto. Confira se a ideia está desenvolvida o suficiente.`,
     });
   }
 
@@ -101,16 +94,6 @@ export function validatePost(post: string): ValidationIssue[] {
       type: "emojis",
       severity: "warning",
       message: `${emojis.length} emojis. LinkedIn performa melhor com 0–2 emojis funcionais.`,
-    });
-  }
-
-  const lines = post.split("\n").filter((l) => l.trim().length > 0);
-  const longLines = lines.filter((l) => l.length > 280).length;
-  if (longLines >= 2) {
-    issues.push({
-      type: "linebreaks",
-      severity: "warning",
-      message: `${longLines} parágrafos sem quebra. Quebre frases para facilitar leitura em mobile.`,
     });
   }
 

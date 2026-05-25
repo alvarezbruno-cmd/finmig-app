@@ -4,12 +4,6 @@ import { useMemo, useState } from "react";
 import { scorePost, validatePost } from "@/lib/validators";
 import type { Variation } from "@/lib/types";
 
-const styleLabels: Record<Variation["style"], string> = {
-  storytelling: "Storytelling",
-  contrarian: "Contrarian",
-  tactical: "Tático",
-};
-
 interface Props {
   variation: Variation;
   onChange?: (next: Variation) => void;
@@ -92,9 +86,9 @@ export function PostCard({ variation, onChange }: Props) {
       <div className="mb-3 flex items-start justify-between gap-3">
         <div>
           <div className="text-xs uppercase tracking-wider text-[var(--color-text-dim)]">
-            {styleLabels[variation.style]}
+            Ângulo
           </div>
-          <div className="mt-0.5 font-medium">{variation.title}</div>
+          <div className="mt-0.5 font-medium">{variation.angle}</div>
         </div>
         <div className="flex items-center gap-3 text-sm">
           <span className={scoreColor}>{score}/100</span>

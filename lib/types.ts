@@ -1,5 +1,3 @@
-export type Style = "storytelling" | "contrarian" | "tactical";
-
 export interface ReferencePost {
   id: string;
   content: string;
@@ -8,8 +6,7 @@ export interface ReferencePost {
 }
 
 export interface Variation {
-  style: Style;
-  title: string;
+  angle: string;
   post: string;
 }
 
