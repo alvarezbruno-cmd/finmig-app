@@ -1,3 +1,4 @@
+import type { Style, Variation } from "./types";
 import { BANNED_PHRASES } from "./validators";
 
 export const SYSTEM_PROMPT = `Você é um ghostwriter sênior de LinkedIn que escreve em português brasileiro. Seus posts geram engajamento alto e consistente — você escreve para executivos, fundadores e especialistas técnicos que querem soar autênticos, não vendedores.
@@ -50,15 +51,30 @@ Se a matéria-prima tiver várias ideias diferentes, escolha **uma tese central*
 
 # Formato de saída
 
-Responda SEMPRE com JSON válido, sem markdown, sem fences, exatamente neste schema:
+Responda SEMPRE neste formato literal de delimitadores, sem markdown, sem JSON, sem fences. Use exatamente os marcadores @@@VARIATION@@@, STYLE:, TITLE:, BODY: e @@@END@@@:
 
-{
-  "variations": [
-    { "style": "storytelling", "title": "<rótulo curto, max 6 palavras>", "post": "<post completo com quebras de linha como \\n>" },
-    { "style": "contrarian", "title": "<...>", "post": "<...>" },
-    { "style": "tactical", "title": "<...>", "post": "<...>" }
-  ]
-}
+@@@VARIATION@@@
+STYLE: storytelling
+TITLE: <rótulo curto, max 6 palavras>
+BODY:
+<post completo, com quebras de linha reais, aspas, o que precisar>
+@@@VARIATION@@@
+STYLE: contrarian
+TITLE: <rótulo curto>
+BODY:
+<post completo>
+@@@VARIATION@@@
+STYLE: tactical
+TITLE: <rótulo curto>
+BODY:
+<post completo>
+@@@END@@@
+
+Regras do formato:
+- O STYLE deve ser exatamente uma destas palavras: storytelling, contrarian, tactical.
+- O corpo do post vem logo após a linha "BODY:" e vai até o próximo @@@VARIATION@@@ ou @@@END@@@.
+- Não escreva nada antes do primeiro @@@VARIATION@@@ nem depois de @@@END@@@.
+- No corpo do post você pode usar quebras de linha, aspas, emojis — não precisa escapar nada.
 
 Cada variação deve ser visivelmente diferente: hooks diferentes, ângulos diferentes, ritmos diferentes. Não escreva o mesmo post três vezes em roupagens parecidas.`;
 
@@ -101,9 +117,40 @@ export function buildUserMessage(topic: string, sourceContent: string): string {
     );
   }
   parts.push(
-    "Gere as 3 variações conforme as regras. Lembre-se: hook forte na linha 1, frases curtas, sem clichês, voz única em primeira pessoa, síntese fluida (não enumeração de fontes), JSON puro como resposta.",
+    "Gere as 3 variações conforme as regras. Lembre-se: hook forte na linha 1, frases curtas, sem clichês, voz única em primeira pessoa, síntese fluida (não enumeração de fontes). Responda no formato de delimitadores @@@VARIATION@@@ ... @@@END@@@.",
   );
   return parts.join("\n\n");
+}
+
+const VALID_STYLES: Style[] = ["storytelling", "contrarian", "tactical"];
+
+export function parseVariations(raw: string): Variation[] {
+  const text = raw.replace(/@@@END@@@[\s\S]*$/, "");
+  const chunks = text
+    .split("@@@VARIATION@@@")
+    .map((c) => c.trim())
+    .filter((c) => c.length > 0);
+
+  const variations: Variation[] = [];
+  for (const chunk of chunks) {
+    const styleMatch = chunk.match(/STYLE:\s*(\w+)/i);
+    const titleMatch = chunk.match(/TITLE:\s*(.+)/i);
+    const bodyMatch = chunk.match(/BODY:\s*\n?([\s\S]*)$/i);
+    if (!bodyMatch) continue;
+
+    const rawStyle = styleMatch?.[1]?.toLowerCase() ?? "";
+    const style = (VALID_STYLES as string[]).includes(rawStyle)
+      ? (rawStyle as Style)
+      : "storytelling";
+
+    variations.push({
+      style,
+      title: titleMatch?.[1]?.trim() || "Variação",
+      post: bodyMatch[1].trim(),
+    });
+  }
+
+  return variations;
 }
 
 export const REWRITE_SYSTEM = `Você é um editor de LinkedIn. Você reescreve trechos específicos de posts mantendo o tom, voz e estrutura do post original.
@@ -112,8 +159,11 @@ Regras:
 - Mantenha a primeira pessoa e o registro do texto original.
 - Não use clichês corporativos.
 - Frases curtas, quebras frequentes.
-- Responda SEMPRE com JSON: { "rewritten": "<texto reescrito>" }
-- Não inclua aspas externas, markdown ou explicação. Apenas o JSON.`;
+- Responda APENAS com o trecho reescrito, em texto puro. Sem markdown, sem aspas externas, sem explicação, sem rótulos. Apenas o texto que substitui o trecho.`;
+
+export function parseRewrite(raw: string): string {
+  return raw.trim().replace(/^["']|["']$/g, "").trim();
+}
 
 export function buildRewriteMessage(
   fullPost: string,

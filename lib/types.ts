@@ -28,16 +28,8 @@ export interface GenerateRequest {
   references: string[];
 }
 
-export interface GenerateResponse {
-  variations: Variation[];
-}
-
 export interface RewriteRequest {
   fullPost: string;
   snippet: string;
   instruction: string;
-}
-
-export interface RewriteResponse {
-  rewritten: string;
 }

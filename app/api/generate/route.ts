@@ -1,8 +1,8 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
-import { extractJSON, getClient, MODEL } from "@/lib/claude";
-import { buildSystemBlocks, buildUserMessage } from "@/lib/prompts";
-import type { GenerateRequest, GenerateResponse } from "@/lib/types";
+import { getClient, MODEL } from "@/lib/claude";
+import { buildSystemBlocks, buildUserMessage, parseVariations } from "@/lib/prompts";
+import type { GenerateRequest } from "@/lib/types";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -38,16 +38,16 @@ export async function POST(req: Request) {
       .map((b) => b.text)
       .join("\n");
 
-    const parsed = extractJSON<GenerateResponse>(text);
+    const variations = parseVariations(text);
 
-    if (!parsed.variations || !Array.isArray(parsed.variations)) {
+    if (variations.length === 0) {
       return NextResponse.json(
         { error: "A IA retornou um formato inesperado." },
         { status: 502 },
       );
     }
 
-    return NextResponse.json(parsed);
+    return NextResponse.json({ variations });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Erro desconhecido";
     return NextResponse.json({ error: message }, { status: 500 });

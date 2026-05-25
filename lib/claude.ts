@@ -16,20 +16,3 @@ export function getClient(): Anthropic {
 }
 
 export const MODEL = "claude-sonnet-4-6";
-
-export function extractJSON<T>(text: string): T {
-  const trimmed = text.trim();
-  const fenceMatch = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/);
-  const candidate = fenceMatch ? fenceMatch[1] : trimmed;
-
-  try {
-    return JSON.parse(candidate) as T;
-  } catch {
-    const first = candidate.indexOf("{");
-    const last = candidate.lastIndexOf("}");
-    if (first !== -1 && last > first) {
-      return JSON.parse(candidate.slice(first, last + 1)) as T;
-    }
-    throw new Error("Resposta da IA não é JSON válido.");
-  }
-}

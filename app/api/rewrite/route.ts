@@ -1,8 +1,8 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
-import { extractJSON, getClient, MODEL } from "@/lib/claude";
-import { buildRewriteMessage, REWRITE_SYSTEM } from "@/lib/prompts";
-import type { RewriteRequest, RewriteResponse } from "@/lib/types";
+import { getClient, MODEL } from "@/lib/claude";
+import { buildRewriteMessage, parseRewrite, REWRITE_SYSTEM } from "@/lib/prompts";
+import type { RewriteRequest } from "@/lib/types";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -44,14 +44,14 @@ export async function POST(req: Request) {
       .map((b) => b.text)
       .join("\n");
 
-    const parsed = extractJSON<RewriteResponse>(text);
-    if (!parsed.rewritten) {
+    const rewritten = parseRewrite(text);
+    if (!rewritten) {
       return NextResponse.json(
         { error: "A IA retornou um formato inesperado." },
         { status: 502 },
       );
     }
-    return NextResponse.json(parsed);
+    return NextResponse.json({ rewritten });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Erro desconhecido";
     return NextResponse.json({ error: message }, { status: 500 });
