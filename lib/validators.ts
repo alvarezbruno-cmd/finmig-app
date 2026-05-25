@@ -39,7 +39,7 @@ export const BANNED_PHRASES = [
 ];
 
 export interface ValidationIssue {
-  type: "cliche" | "length" | "hashtags" | "emojis" | "linebreaks";
+  type: "cliche" | "length" | "hashtags" | "emojis" | "linebreaks" | "ai-tell";
   severity: "error" | "warning";
   message: string;
   match?: string;
@@ -94,6 +94,23 @@ export function validatePost(post: string): ValidationIssue[] {
       type: "emojis",
       severity: "warning",
       message: `${emojis.length} emojis. LinkedIn performa melhor com 0–2 emojis funcionais.`,
+    });
+  }
+
+  const dashes = post.match(/—|–|\s-\s/g) ?? [];
+  if (dashes.length > 0) {
+    issues.push({
+      type: "ai-tell",
+      severity: "warning",
+      message: `${dashes.length} travessão(ões). É marca de IA — troque por vírgula, ponto ou parênteses.`,
+    });
+  }
+
+  if (/\bnão é [^.!?]{1,40}[.!?]\s*[^.!?]{0,30}\bé\b/i.test(post)) {
+    issues.push({
+      type: "ai-tell",
+      severity: "warning",
+      message: 'Possível construção "Não é X. É Y." — reescreva de forma direta.',
     });
   }
 
