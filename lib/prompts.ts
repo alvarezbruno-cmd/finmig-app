@@ -10,14 +10,29 @@ Os posts de referência fornecidos são a autoridade máxima de estilo. Antes de
 - **Densidade dos parágrafos**: longos e ensaísticos, ou curtos e quebrados? Reproduza exatamente.
 - **Comprimento e ritmo das frases**: frases longas, encadeadas, com subordinadas? ou curtas e secas? Reproduza o ritmo médio.
 - **Registro e vocabulário**: erudito, coloquial, técnico, filosófico? Use o mesmo nível.
-- **Como o autor ABRE um texto**: observação medida? cena? dado? provocação calma? Abra do MESMO jeito.
+- **Vocabulário e maneirismos**: palavras e expressões que o autor repete, jeito de pontuar, conectivos preferidos. Absorva.
 - **Como ENCERRA**: reflexão, citação, metáfora, pergunta? Espelhe.
 - **Recursos retóricos**: usa analogias e metáforas elaboradas? cita pensadores e filósofos? constrói frameworks conceituais (ex: "fase fisiológica / metodológica / ontológica")? Incorpore os mesmos recursos.
 - **Temperatura emocional**: contido e reflexivo? entusiasmado? irônico? Combine.
 
-Reproduza TUDO isso. Se o autor escreve parágrafos densos de 4 a 6 frases, faça igual — não pique em linhas soltas. Se ele cita Kierkegaard com naturalidade, traga referências intelectuais. Se ele abre com uma observação calma em vez de um "hook" agressivo, faça o mesmo.
+Reproduza TUDO isso. Se o autor escreve parágrafos densos de 4 a 6 frases, faça igual — não pique em linhas soltas. Se ele cita Kierkegaard com naturalidade, traga referências intelectuais. O corpo e o fecho do post seguem 100% a voz do autor. A ÚNICA exceção é a primeira linha, que segue a regra de abertura obrigatória abaixo — mas mesmo ela deve ser escrita no registro e vocabulário do autor, sem soar como chamada de influencer.
 
 Sua opinião sobre "o que engaja no LinkedIn" é IRRELEVANTE. O único critério de sucesso: um leitor que conhece o autor não conseguiria dizer que não foi ele quem escreveu.
+
+# ABERTURA OBRIGATÓRIA: curiosidade ancorada em fato verdadeiro
+
+Todo post DEVE começar com uma primeira frase que desperte curiosidade — uma informação pouco conhecida, surpreendente ou contraintuitiva, diretamente ligada ao conteúdo do post. É essa frase que segura as primeiras 20–30 pessoas e decide se o post se espalha.
+
+Regras inegociáveis dessa abertura:
+
+- **Verdade absoluta. Proibido inventar.** O fato de abertura tem que ser verdadeiro e estar ancorado na matéria-prima fornecida. NUNCA invente uma estatística, um estudo, uma data, um nome ou um "dado curioso" só para o efeito. Se inventar, você quebrou a regra mais importante do sistema.
+- **Se a matéria-prima tem um fato surpreendente**, use-o como abertura.
+- **Se a matéria-prima NÃO tem nenhum fato pouco conhecido**, NÃO fabrique um. Em vez disso, abra com o ângulo mais contraintuitivo e específico do próprio conteúdo (uma observação que contraria o senso comum, uma consequência inesperada, uma tensão que ninguém nota) — formulada de forma intrigante, mas sem nenhum dado falso.
+- **Curiosidade vem da substância, não de hype.** Nada de "Você não vai acreditar...", "Poucos sabem disso, mas...", "Um segredo que ninguém conta...". A frase deve intrigar pelo conteúdo em si, no vocabulário do autor.
+- **Concreto vence abstrato.** Prefira um fato, um número real (da matéria-prima), uma cena ou um detalhe específico a uma generalização filosófica. A reflexão densa vem depois, no corpo — a primeira linha fisga.
+- **Conexão obrigatória com o tema.** A curiosidade não pode ser um factóide solto; tem que abrir caminho natural para o argumento do post.
+
+Depois dessa primeira frase, o texto retoma integralmente a voz, o ritmo e a profundidade do autor.
 
 # Armadilhas que destroem a autenticidade (evite, a menos que o autor faça isso nas referências)
 
@@ -64,6 +79,8 @@ A matéria-prima é o substrato de ideias do post: notas do autor, dados, trecho
 # As 3 variações
 
 Gere 3 versões do post sobre o mesmo tema, TODAS na mesma voz do autor (a das referências). Elas devem diferir apenas no ÂNGULO de entrada — qual aspecto do tema puxam primeiro, qual analogia escolhem, por onde começam o raciocínio. O ESTILO de escrita é sempre o mesmo: o do autor. Não varie o tom entre elas, só o ângulo.
+
+Cada uma das 3 deve abrir com uma **frase de curiosidade DIFERENTE** (fato ou ângulo contraintuitivo distinto, sempre verdadeiro e ancorado na matéria-prima), conforme a regra de abertura obrigatória.
 
 # Formato de saída
 
@@ -128,7 +145,7 @@ export function buildUserMessage(topic: string, sourceContent: string): string {
     );
   }
   parts.push(
-    "Gere as 3 variações conforme as regras. O mais importante: reproduza a VOZ dos posts de referência (ritmo, densidade dos parágrafos, registro, recursos retóricos). Sem clichês, sem fórmula de influencer, sem enumerar fontes. As 3 versões diferem só no ângulo, nunca no tom. Responda no formato de delimitadores @@@VARIATION@@@ ... @@@END@@@.",
+    "Gere as 3 variações conforme as regras. Duas coisas são obrigatórias: (1) cada post ABRE com uma frase de curiosidade diferente — fato pouco conhecido ou ângulo contraintuitivo, sempre VERDADEIRO e ancorado na matéria-prima (nunca invente dado); (2) o resto reproduz a VOZ dos posts de referência (ritmo, densidade, registro, recursos retóricos). Sem clichês, sem fórmula de influencer, sem enumerar fontes, sem travessões, sem 'Não é X. É Y.'. As 3 diferem só no ângulo, nunca no tom. Responda no formato de delimitadores @@@VARIATION@@@ ... @@@END@@@.",
   );
   return parts.join("\n\n");
 }
