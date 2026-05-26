@@ -2,38 +2,52 @@
 
 import { useEffect, useState } from "react";
 import { PostCard } from "./PostCard";
-import { history, references } from "@/lib/storage";
-import type { ReferencePost, Variation } from "@/lib/types";
+import { history, references, sources } from "@/lib/storage";
+import type { ReferencePost, SourceText, Variation } from "@/lib/types";
 
 export function Generator() {
   const [topic, setTopic] = useState("");
-  const [sourceContent, setSourceContent] = useState("");
+  const [extraNotes, setExtraNotes] = useState("");
   const [refs, setRefs] = useState<ReferencePost[]>([]);
+  const [texts, setTexts] = useState<SourceText[]>([]);
+  const [selectedIdeaIds, setSelectedIdeaIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [variations, setVariations] = useState<Variation[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     setRefs(references.list());
+    setTexts(sources.list());
   }, []);
+
+  function toggleIdea(id: string) {
+    setSelectedIdeaIds((curr) =>
+      curr.includes(id) ? curr.filter((x) => x !== id) : [...curr, id],
+    );
+  }
 
   async function generate() {
     if (!topic.trim()) {
       setError("Informe um tópico.");
       return;
     }
+    if (selectedIdeaIds.length === 0 && !extraNotes.trim()) {
+      setError("Selecione ao menos uma ideia central (ou escreva notas adicionais).");
+      return;
+    }
     setError(null);
     setLoading(true);
     setVariations(null);
     try {
-      const allRefs = references.list();
+      const ideas = sources.getSelectedIdeas(selectedIdeaIds);
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           topic,
-          sourceContent,
-          references: allRefs.map((r) => r.content),
+          ideas,
+          extraNotes,
+          references: references.list().map((r) => r.content),
         }),
       });
 
@@ -51,12 +65,7 @@ export function Generator() {
       if (!data.variations) throw new Error("Resposta sem variações.");
 
       setVariations(data.variations);
-      history.add({
-        topic,
-        sourceContent,
-        referenceIds: allRefs.map((r) => r.id),
-        variations: data.variations,
-      });
+      history.add({ topic, variations: data.variations });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro desconhecido");
     } finally {
@@ -73,50 +82,121 @@ export function Generator() {
     });
   }
 
+  const totalIdeas = texts.reduce((n, t) => n + t.ideas.length, 0);
+
   return (
     <div className="space-y-6">
-      <section className="space-y-3">
+      <section className="space-y-4">
         <label className="block">
           <div className="mb-1 text-sm text-[var(--color-text-dim)]">Tópico do post</div>
           <input
             value={topic}
             onChange={(e) => setTopic(e.target.value)}
-            placeholder="Ex: o erro mais comum que vejo em fundadores B2B no primeiro pitch"
+            placeholder="Ex: o impacto da IA no desenvolvimento do julgamento em adolescentes"
             className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 outline-none focus:border-[var(--color-accent)]"
           />
         </label>
 
+        <div>
+          <div className="mb-2 flex items-center justify-between">
+            <div className="text-sm text-[var(--color-text-dim)]">
+              Ideias centrais — {selectedIdeaIds.length} selecionada
+              {selectedIdeaIds.length === 1 ? "" : "s"}
+            </div>
+            {selectedIdeaIds.length > 0 && (
+              <button
+                onClick={() => setSelectedIdeaIds([])}
+                className="text-xs text-[var(--color-text-dim)] hover:underline"
+              >
+                Limpar seleção
+              </button>
+            )}
+          </div>
+
+          {totalIdeas === 0 ? (
+            <div className="rounded-md border border-dashed border-[var(--color-border)] p-4 text-center text-sm text-[var(--color-text-dim)]">
+              Nenhuma ideia cadastrada. Vá em{" "}
+              <a href="/sources" className="text-[var(--color-accent)] underline">
+                Textos
+              </a>{" "}
+              e adicione textos com suas ideias centrais.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {texts
+                .filter((t) => t.ideas.length > 0)
+                .map((t) => (
+                  <div
+                    key={t.id}
+                    className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] p-3"
+                  >
+                    <div className="mb-2 text-xs text-[var(--color-text-dim)]">
+                      <span className="font-medium text-[var(--color-text)]">
+                        {t.title || "(sem título)"}
+                      </span>
+                      {t.author && ` · ${t.author}`}
+                    </div>
+                    <div className="space-y-1.5">
+                      {t.ideas.map((idea) => {
+                        const selected = selectedIdeaIds.includes(idea.id);
+                        return (
+                          <button
+                            key={idea.id}
+                            onClick={() => toggleIdea(idea.id)}
+                            className={
+                              "flex w-full items-start gap-2 rounded-md border p-2.5 text-left text-sm transition " +
+                              (selected
+                                ? "border-[var(--color-accent)] bg-[var(--color-surface-2)]"
+                                : "border-[var(--color-border)] hover:border-[var(--color-text-dim)]")
+                            }
+                          >
+                            <span
+                              className={
+                                "mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[10px] " +
+                                (selected
+                                  ? "border-[var(--color-accent)] bg-[var(--color-accent)] text-black"
+                                  : "border-[var(--color-border)]")
+                              }
+                            >
+                              {selected ? "✓" : ""}
+                            </span>
+                            <span className="leading-relaxed">{idea.text}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+            </div>
+          )}
+        </div>
+
         <label className="block">
           <div className="mb-1 text-sm text-[var(--color-text-dim)]">
-            Matéria-prima{" "}
-            <span className="text-xs">
-              (notas, dados, trechos, histórias — a IA sintetiza num único texto fluido)
-            </span>
+            Notas adicionais{" "}
+            <span className="text-xs">(opcional — sua opinião, ângulo, contexto)</span>
           </div>
           <textarea
-            value={sourceContent}
-            onChange={(e) => setSourceContent(e.target.value)}
-            placeholder="Cole bullets, dados, histórias suas, trechos de leituras, exemplos...&#10;&#10;A IA escreve em primeira pessoa, sintetizando tudo num único argumento — sem enumerar fontes, mas atribuindo de forma leve quando precisar."
-            className="min-h-[180px] w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm leading-relaxed outline-none focus:border-[var(--color-accent)]"
+            value={extraNotes}
+            onChange={(e) => setExtraNotes(e.target.value)}
+            placeholder="Ex: quero defender que retenção importa mais que aquisição, e contrariar o discurso de 'growth at all costs'."
+            className="min-h-[90px] w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm leading-relaxed outline-none focus:border-[var(--color-accent)]"
           />
         </label>
 
         <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-text-dim)]">
           {refs.length === 0 ? (
             <>
-              Nenhuma referência de estilo cadastrada. Adicione posts que você admira em{" "}
+              Nenhuma referência de estilo. Adicione posts que você admira em{" "}
               <a href="/library" className="text-[var(--color-accent)] underline">
                 Referências
               </a>{" "}
-              — a IA usa todas para reproduzir sua voz.
+              para a IA reproduzir sua voz.
             </>
           ) : (
             <>
               <span className="text-[var(--color-ok)]">{refs.length}</span> referência
-              {refs.length === 1 ? "" : "s"} de estilo serão usadas em toda geração.{" "}
-              <a href="/library" className="text-[var(--color-accent)] underline">
-                Gerenciar
-              </a>
+              {refs.length === 1 ? "" : "s"} de estilo serão usadas para reproduzir sua voz.
             </>
           )}
         </div>
@@ -126,7 +206,7 @@ export function Generator() {
           disabled={loading}
           className="w-full rounded-md bg-[var(--color-accent)] py-3 font-medium text-black disabled:opacity-60"
         >
-          {loading ? "Gerando 3 variações…" : "Gerar 3 variações"}
+          {loading ? "Costurando 3 variações…" : "Gerar 3 variações"}
         </button>
 
         {error && (

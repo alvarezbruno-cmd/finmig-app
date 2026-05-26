@@ -69,8 +69,7 @@ export function History() {
                     <div className="truncate font-medium">{e.topic}</div>
                     <div className="text-xs text-[var(--color-text-dim)]">
                       {new Date(e.createdAt).toLocaleString("pt-BR")} ·{" "}
-                      {e.variations.length} variações · {e.referenceIds.length}{" "}
-                      referências
+                      {e.variations.length} variações
                     </div>
                   </div>
                   <div className="flex shrink-0 items-center gap-2">

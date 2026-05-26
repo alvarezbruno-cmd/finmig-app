@@ -1,9 +1,10 @@
 "use client";
 
-import type { HistoryEntry, ReferencePost } from "./types";
+import type { HistoryEntry, Idea, ReferencePost, SelectedIdea, SourceText } from "./types";
 
 const REF_KEY = "finmig:references";
 const HIST_KEY = "finmig:history";
+const SRC_KEY = "finmig:sources";
 
 function read<T>(key: string): T[] {
   if (typeof window === "undefined") return [];
@@ -100,5 +101,107 @@ export const history = {
   },
   clear(): void {
     write(HIST_KEY, []);
+  },
+};
+
+function writeSources(items: SourceText[]): void {
+  write(SRC_KEY, items);
+}
+function readSources(): SourceText[] {
+  return read<SourceText>(SRC_KEY);
+}
+
+export const sources = {
+  list(): SourceText[] {
+    return readSources().sort((a, b) => b.createdAt - a.createdAt);
+  },
+  add(meta: Omit<SourceText, "id" | "ideas" | "createdAt">): SourceText {
+    const item: SourceText = {
+      ...meta,
+      id: crypto.randomUUID(),
+      ideas: [],
+      createdAt: Date.now(),
+    };
+    writeSources([item, ...readSources()]);
+    return item;
+  },
+  update(id: string, patch: Partial<Omit<SourceText, "id" | "ideas" | "createdAt">>): void {
+    writeSources(readSources().map((s) => (s.id === id ? { ...s, ...patch } : s)));
+  },
+  remove(id: string): void {
+    writeSources(readSources().filter((s) => s.id !== id));
+  },
+  addIdea(sourceId: string, text: string): void {
+    if (!text.trim()) return;
+    const idea: Idea = { id: crypto.randomUUID(), text: text.trim(), createdAt: Date.now() };
+    writeSources(
+      readSources().map((s) =>
+        s.id === sourceId ? { ...s, ideas: [...s.ideas, idea] } : s,
+      ),
+    );
+  },
+  updateIdea(sourceId: string, ideaId: string, text: string): void {
+    writeSources(
+      readSources().map((s) =>
+        s.id === sourceId
+          ? {
+              ...s,
+              ideas: s.ideas.map((i) => (i.id === ideaId ? { ...i, text: text.trim() } : i)),
+            }
+          : s,
+      ),
+    );
+  },
+  removeIdea(sourceId: string, ideaId: string): void {
+    writeSources(
+      readSources().map((s) =>
+        s.id === sourceId ? { ...s, ideas: s.ideas.filter((i) => i.id !== ideaId) } : s,
+      ),
+    );
+  },
+  getSelectedIdeas(ideaIds: string[]): SelectedIdea[] {
+    const idSet = new Set(ideaIds);
+    const selected: SelectedIdea[] = [];
+    for (const s of readSources()) {
+      for (const idea of s.ideas) {
+        if (idSet.has(idea.id)) {
+          selected.push({
+            text: idea.text,
+            sourceTitle: s.title,
+            sourceAuthor: s.author,
+          });
+        }
+      }
+    }
+    return selected;
+  },
+  exportAll(): string {
+    return JSON.stringify(readSources(), null, 2);
+  },
+  importMany(json: string): number {
+    const parsed = JSON.parse(json) as SourceText[];
+    if (!Array.isArray(parsed)) throw new Error("Formato inválido.");
+    const existing = readSources();
+    const byId = new Map(existing.map((s) => [s.id, s]));
+    let added = 0;
+    for (const item of parsed) {
+      if (!item?.title && !item?.ideas) continue;
+      const id = item.id ?? crypto.randomUUID();
+      if (!byId.has(id)) {
+        byId.set(id, {
+          id,
+          title: item.title ?? "",
+          author: item.author ?? "",
+          publication: item.publication ?? "",
+          date: item.date ?? "",
+          link: item.link ?? "",
+          ideas: Array.isArray(item.ideas) ? item.ideas : [],
+          createdAt: item.createdAt ?? Date.now(),
+        });
+        added++;
+      }
+    }
+    writeSources([...byId.values()]);
+    return added;
   },
 };

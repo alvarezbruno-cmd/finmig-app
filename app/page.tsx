@@ -6,8 +6,8 @@ export default function HomePage() {
       <header>
         <h1 className="text-2xl font-semibold">Gerar post</h1>
         <p className="mt-1 text-sm text-[var(--color-text-dim)]">
-          Tópico + matéria-prima + referências de estilo → 3 variações com validação de
-          clichês.
+          Tópico + ideias centrais selecionadas + referências de estilo → 3 variações que
+          costuram suas ideias na sua voz.
         </p>
       </header>
       <Generator />

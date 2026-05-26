@@ -1,4 +1,4 @@
-import type { Variation } from "./types";
+import type { SelectedIdea, Variation } from "./types";
 import { BANNED_PHRASES } from "./validators";
 
 export const SYSTEM_PROMPT = `Você é um ghostwriter de LinkedIn cuja única missão é escrever NA VOZ DO AUTOR — nunca em um "estilo de LinkedIn" genérico. Você desaparece e reproduz a escrita dele com fidelidade quase forense. Escreve em português brasileiro.
@@ -136,16 +136,40 @@ export function buildSystemBlocks(referencePosts: string[]) {
   return blocks;
 }
 
-export function buildUserMessage(topic: string, sourceContent: string): string {
+export function buildUserMessage(
+  topic: string,
+  ideas: SelectedIdea[],
+  extraNotes?: string,
+): string {
   const parts: string[] = [];
   parts.push(`# Tópico do post\n\n${topic.trim()}`);
-  if (sourceContent.trim()) {
+
+  if (ideas.length > 0) {
+    const list = ideas
+      .map((i) => {
+        const credit =
+          i.sourceAuthor || i.sourceTitle
+            ? ` (origem: ${[i.sourceAuthor, i.sourceTitle && `"${i.sourceTitle}"`]
+                .filter(Boolean)
+                .join(", ")})`
+            : "";
+        return `- ${i.text}${credit}`;
+      })
+      .join("\n");
+
     parts.push(
-      `# Matéria-prima\n\nMistura de notas, fatos, dados e ideias que o autor reuniu sobre o tópico. Pode conter conteúdo dele mesmo e de fontes externas. Sintetize tudo num único post fluido, em primeira pessoa: nunca enumere ("artigo X diz; autor Y diz"), nunca invente fontes, e quando precisar atribuir algo a alguém de fora, faça isso uma vez só, integrado ao argumento, sem virar bloco separado.\n\n${sourceContent.trim()}`,
+      `# Ideias centrais selecionadas (a matéria-prima do post)\n\nO autor escolheu estas ideias-chave para costurar em UM único post coeso. Sintetize-as num texto fluido na voz do autor — não as enumere uma a uma como lista de citações. Quando uma ideia vier de um autor/texto externo nomeado entre parênteses, dê o crédito de forma honesta e integrada (uma vez, dissolvido no argumento, nunca como bibliografia). Não invente dados além do que está aqui.\n\n${list}`,
     );
   }
+
+  if (extraNotes?.trim()) {
+    parts.push(
+      `# Notas adicionais do autor (contexto e opinião própria, sem necessidade de atribuição)\n\n${extraNotes.trim()}`,
+    );
+  }
+
   parts.push(
-    "Gere as 3 variações conforme as regras. Duas coisas são obrigatórias: (1) cada post ABRE com uma frase de curiosidade diferente — fato pouco conhecido ou ângulo contraintuitivo, sempre VERDADEIRO e ancorado na matéria-prima (nunca invente dado); (2) o resto reproduz a VOZ dos posts de referência (ritmo, densidade, registro, recursos retóricos). Sem clichês, sem fórmula de influencer, sem enumerar fontes, sem travessões, sem 'Não é X. É Y.'. As 3 diferem só no ângulo, nunca no tom. Responda no formato de delimitadores @@@VARIATION@@@ ... @@@END@@@.",
+    "Gere as 3 variações conforme as regras. Duas coisas são obrigatórias: (1) cada post ABRE com uma frase de curiosidade diferente — fato pouco conhecido ou ângulo contraintuitivo, sempre VERDADEIRO e ancorado nas ideias acima (nunca invente dado); (2) o resto reproduz a VOZ dos posts de referência (ritmo, densidade, registro, recursos retóricos). Costure as ideias selecionadas num argumento único, creditando autores externos de forma integrada. Sem clichês, sem fórmula de influencer, sem enumerar fontes, sem travessões, sem 'Não é X. É Y.'. As 3 diferem só no ângulo, nunca no tom. Responda no formato de delimitadores @@@VARIATION@@@ ... @@@END@@@.",
   );
   return parts.join("\n\n");
 }

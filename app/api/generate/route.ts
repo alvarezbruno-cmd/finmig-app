@@ -19,6 +19,14 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Tópico é obrigatório" }, { status: 400 });
   }
 
+  const ideas = (body.ideas ?? []).filter((i) => i.text?.trim().length > 0);
+  if (ideas.length === 0 && !body.extraNotes?.trim()) {
+    return NextResponse.json(
+      { error: "Selecione ao menos uma ideia central (ou escreva notas adicionais)." },
+      { status: 400 },
+    );
+  }
+
   const refs = (body.references ?? []).filter((r) => r.trim().length > 0);
 
   try {
@@ -29,7 +37,10 @@ export async function POST(req: Request) {
       temperature: 0.9,
       system: buildSystemBlocks(refs),
       messages: [
-        { role: "user", content: buildUserMessage(body.topic, body.sourceContent ?? "") },
+        {
+          role: "user",
+          content: buildUserMessage(body.topic, ideas, body.extraNotes),
+        },
       ],
     });
 
