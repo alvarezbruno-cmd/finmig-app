@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { supabase } from "@/lib/supabase";
 
 const links = [
   { href: "/", label: "Gerar" },
@@ -37,6 +38,12 @@ export function NavBar() {
               </Link>
             );
           })}
+          <button
+            onClick={() => supabase.auth.signOut()}
+            className="rounded-md px-3 py-1.5 text-sm text-[var(--color-text-dim)] transition hover:text-white"
+          >
+            Sair
+          </button>
         </div>
       </div>
     </nav>

@@ -1,37 +1,112 @@
 "use client";
 
+import { supabase } from "./supabase";
 import type {
   HistoryEntry,
   Idea,
+  PostFormat,
+  PostMetrics,
   PublishedPost,
   ReferencePost,
   SelectedIdea,
   SourceText,
 } from "./types";
 
-const REF_KEY = "finmig:references";
-const HIST_KEY = "finmig:history";
-const SRC_KEY = "finmig:sources";
-const ANALYTICS_KEY = "finmig:analytics";
+// In-memory cache, hydrated once after login. Components read it synchronously;
+// mutations update the cache optimistically and persist to Supabase in background.
+const cache = {
+  refs: [] as ReferencePost[],
+  sources: [] as SourceText[],
+  history: [] as HistoryEntry[],
+  analytics: [] as PublishedPost[],
+};
 
-function read<T>(key: string): T[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = window.localStorage.getItem(key);
-    return raw ? (JSON.parse(raw) as T[]) : [];
-  } catch {
-    return [];
-  }
+function persist(p: PromiseLike<{ error: unknown }>): void {
+  Promise.resolve(p).then(({ error }) => {
+    if (error) console.error("Supabase:", error);
+  });
 }
 
-function write<T>(key: string, value: T[]): void {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(key, JSON.stringify(value));
+function iso(ms: number): string {
+  return new Date(ms).toISOString();
+}
+
+interface RefRow {
+  id: string;
+  content: string;
+  note: string | null;
+  created_at: string;
+}
+interface SourceRow {
+  id: string;
+  title: string;
+  author: string;
+  publication: string;
+  date: string;
+  link: string;
+  ideas: Idea[];
+  created_at: string;
+}
+interface HistoryRow {
+  id: string;
+  topic: string;
+  variations: HistoryEntry["variations"];
+  created_at: string;
+}
+interface AnalyticsRow {
+  id: string;
+  text: string;
+  theme: string;
+  format: string;
+  posted_at: string;
+  metrics: PostMetrics;
+  created_at: string;
+}
+
+export async function hydrate(): Promise<void> {
+  const [r, s, h, a] = await Promise.all([
+    supabase.from("style_references").select("*").order("created_at", { ascending: false }),
+    supabase.from("sources").select("*").order("created_at", { ascending: false }),
+    supabase.from("history").select("*").order("created_at", { ascending: false }),
+    supabase.from("analytics").select("*").order("created_at", { ascending: false }),
+  ]);
+
+  cache.refs = ((r.data ?? []) as RefRow[]).map((x) => ({
+    id: x.id,
+    content: x.content,
+    note: x.note ?? undefined,
+    createdAt: new Date(x.created_at).getTime(),
+  }));
+  cache.sources = ((s.data ?? []) as SourceRow[]).map((x) => ({
+    id: x.id,
+    title: x.title ?? "",
+    author: x.author ?? "",
+    publication: x.publication ?? "",
+    date: x.date ?? "",
+    link: x.link ?? "",
+    ideas: Array.isArray(x.ideas) ? x.ideas : [],
+    createdAt: new Date(x.created_at).getTime(),
+  }));
+  cache.history = ((h.data ?? []) as HistoryRow[]).map((x) => ({
+    id: x.id,
+    topic: x.topic,
+    variations: Array.isArray(x.variations) ? x.variations : [],
+    createdAt: new Date(x.created_at).getTime(),
+  }));
+  cache.analytics = ((a.data ?? []) as AnalyticsRow[]).map((x) => ({
+    id: x.id,
+    text: x.text,
+    theme: x.theme ?? "",
+    format: (x.format ?? "texto") as PostFormat,
+    postedAt: x.posted_at ?? "",
+    metrics: x.metrics,
+    createdAt: new Date(x.created_at).getTime(),
+  }));
 }
 
 export const references = {
   list(): ReferencePost[] {
-    return read<ReferencePost>(REF_KEY).sort((a, b) => b.createdAt - a.createdAt);
+    return [...cache.refs].sort((a, b) => b.createdAt - a.createdAt);
   },
   add(content: string, note?: string): ReferencePost {
     const item: ReferencePost = {
@@ -40,176 +115,175 @@ export const references = {
       note: note?.trim() || undefined,
       createdAt: Date.now(),
     };
-    write(REF_KEY, [item, ...read<ReferencePost>(REF_KEY)]);
+    cache.refs = [item, ...cache.refs];
+    persist(
+      supabase.from("style_references").insert({
+        id: item.id,
+        content: item.content,
+        note: item.note ?? null,
+        created_at: iso(item.createdAt),
+      }),
+    );
     return item;
   },
   remove(id: string): void {
-    write(
-      REF_KEY,
-      read<ReferencePost>(REF_KEY).filter((r) => r.id !== id),
-    );
-  },
-  update(id: string, patch: Partial<Pick<ReferencePost, "content" | "note">>): void {
-    write(
-      REF_KEY,
-      read<ReferencePost>(REF_KEY).map((r) => (r.id === id ? { ...r, ...patch } : r)),
-    );
+    cache.refs = cache.refs.filter((r) => r.id !== id);
+    persist(supabase.from("style_references").delete().eq("id", id));
   },
   getMany(ids: string[]): ReferencePost[] {
-    const all = read<ReferencePost>(REF_KEY);
     return ids
-      .map((id) => all.find((r) => r.id === id))
+      .map((id) => cache.refs.find((r) => r.id === id))
       .filter((r): r is ReferencePost => r != null);
   },
   exportAll(): string {
-    return JSON.stringify(read<ReferencePost>(REF_KEY), null, 2);
+    return JSON.stringify(references.list(), null, 2);
   },
   importMany(json: string): number {
     const parsed = JSON.parse(json) as ReferencePost[];
     if (!Array.isArray(parsed)) throw new Error("Formato inválido.");
-    const existing = read<ReferencePost>(REF_KEY);
-    const byId = new Map(existing.map((r) => [r.id, r]));
     let added = 0;
     for (const item of parsed) {
       if (!item?.content) continue;
-      const id = item.id ?? crypto.randomUUID();
-      if (!byId.has(id)) {
-        byId.set(id, {
-          id,
-          content: String(item.content),
-          note: item.note,
-          createdAt: item.createdAt ?? Date.now(),
-        });
-        added++;
-      }
+      references.add(item.content, item.note);
+      added++;
     }
-    write(REF_KEY, [...byId.values()]);
     return added;
   },
 };
 
 export const history = {
   list(): HistoryEntry[] {
-    return read<HistoryEntry>(HIST_KEY).sort((a, b) => b.createdAt - a.createdAt);
+    return [...cache.history].sort((a, b) => b.createdAt - a.createdAt);
   },
   add(entry: Omit<HistoryEntry, "id" | "createdAt">): HistoryEntry {
-    const item: HistoryEntry = {
-      ...entry,
-      id: crypto.randomUUID(),
-      createdAt: Date.now(),
-    };
-    write(HIST_KEY, [item, ...read<HistoryEntry>(HIST_KEY)].slice(0, 200));
+    const item: HistoryEntry = { ...entry, id: crypto.randomUUID(), createdAt: Date.now() };
+    cache.history = [item, ...cache.history];
+    persist(
+      supabase.from("history").insert({
+        id: item.id,
+        topic: item.topic,
+        variations: item.variations,
+        created_at: iso(item.createdAt),
+      }),
+    );
     return item;
   },
   remove(id: string): void {
-    write(
-      HIST_KEY,
-      read<HistoryEntry>(HIST_KEY).filter((e) => e.id !== id),
-    );
+    cache.history = cache.history.filter((e) => e.id !== id);
+    persist(supabase.from("history").delete().eq("id", id));
   },
   clear(): void {
-    write(HIST_KEY, []);
+    const ids = cache.history.map((e) => e.id);
+    cache.history = [];
+    if (ids.length) persist(supabase.from("history").delete().in("id", ids));
   },
 };
 
-function writeSources(items: SourceText[]): void {
-  write(SRC_KEY, items);
-}
-function readSources(): SourceText[] {
-  return read<SourceText>(SRC_KEY);
+function persistSource(s: SourceText): void {
+  persist(
+    supabase.from("sources").update({
+      title: s.title,
+      author: s.author,
+      publication: s.publication,
+      date: s.date,
+      link: s.link,
+      ideas: s.ideas,
+    }).eq("id", s.id),
+  );
 }
 
 export const sources = {
   list(): SourceText[] {
-    return readSources().sort((a, b) => b.createdAt - a.createdAt);
+    return [...cache.sources].sort((a, b) => b.createdAt - a.createdAt);
   },
   add(meta: Omit<SourceText, "id" | "ideas" | "createdAt">): SourceText {
-    const item: SourceText = {
-      ...meta,
-      id: crypto.randomUUID(),
-      ideas: [],
-      createdAt: Date.now(),
-    };
-    writeSources([item, ...readSources()]);
+    const item: SourceText = { ...meta, id: crypto.randomUUID(), ideas: [], createdAt: Date.now() };
+    cache.sources = [item, ...cache.sources];
+    persist(
+      supabase.from("sources").insert({
+        id: item.id,
+        title: item.title,
+        author: item.author,
+        publication: item.publication,
+        date: item.date,
+        link: item.link,
+        ideas: [],
+        created_at: iso(item.createdAt),
+      }),
+    );
     return item;
   },
   update(id: string, patch: Partial<Omit<SourceText, "id" | "ideas" | "createdAt">>): void {
-    writeSources(readSources().map((s) => (s.id === id ? { ...s, ...patch } : s)));
+    cache.sources = cache.sources.map((s) => (s.id === id ? { ...s, ...patch } : s));
+    const s = cache.sources.find((x) => x.id === id);
+    if (s) persistSource(s);
   },
   remove(id: string): void {
-    writeSources(readSources().filter((s) => s.id !== id));
+    cache.sources = cache.sources.filter((s) => s.id !== id);
+    persist(supabase.from("sources").delete().eq("id", id));
   },
   addIdea(sourceId: string, text: string): void {
     if (!text.trim()) return;
     const idea: Idea = { id: crypto.randomUUID(), text: text.trim(), createdAt: Date.now() };
-    writeSources(
-      readSources().map((s) =>
-        s.id === sourceId ? { ...s, ideas: [...s.ideas, idea] } : s,
-      ),
+    cache.sources = cache.sources.map((s) =>
+      s.id === sourceId ? { ...s, ideas: [...s.ideas, idea] } : s,
     );
+    const s = cache.sources.find((x) => x.id === sourceId);
+    if (s) persistSource(s);
   },
   updateIdea(sourceId: string, ideaId: string, text: string): void {
-    writeSources(
-      readSources().map((s) =>
-        s.id === sourceId
-          ? {
-              ...s,
-              ideas: s.ideas.map((i) => (i.id === ideaId ? { ...i, text: text.trim() } : i)),
-            }
-          : s,
-      ),
+    cache.sources = cache.sources.map((s) =>
+      s.id === sourceId
+        ? { ...s, ideas: s.ideas.map((i) => (i.id === ideaId ? { ...i, text: text.trim() } : i)) }
+        : s,
     );
+    const s = cache.sources.find((x) => x.id === sourceId);
+    if (s) persistSource(s);
   },
   removeIdea(sourceId: string, ideaId: string): void {
-    writeSources(
-      readSources().map((s) =>
-        s.id === sourceId ? { ...s, ideas: s.ideas.filter((i) => i.id !== ideaId) } : s,
-      ),
+    cache.sources = cache.sources.map((s) =>
+      s.id === sourceId ? { ...s, ideas: s.ideas.filter((i) => i.id !== ideaId) } : s,
     );
+    const s = cache.sources.find((x) => x.id === sourceId);
+    if (s) persistSource(s);
   },
   getSelectedIdeas(ideaIds: string[]): SelectedIdea[] {
     const idSet = new Set(ideaIds);
     const selected: SelectedIdea[] = [];
-    for (const s of readSources()) {
+    for (const s of cache.sources) {
       for (const idea of s.ideas) {
         if (idSet.has(idea.id)) {
-          selected.push({
-            text: idea.text,
-            sourceTitle: s.title,
-            sourceAuthor: s.author,
-          });
+          selected.push({ text: idea.text, sourceTitle: s.title, sourceAuthor: s.author });
         }
       }
     }
     return selected;
   },
   exportAll(): string {
-    return JSON.stringify(readSources(), null, 2);
+    return JSON.stringify(sources.list(), null, 2);
   },
   importMany(json: string): number {
     const parsed = JSON.parse(json) as SourceText[];
     if (!Array.isArray(parsed)) throw new Error("Formato inválido.");
-    const existing = readSources();
-    const byId = new Map(existing.map((s) => [s.id, s]));
     let added = 0;
     for (const item of parsed) {
       if (!item?.title && !item?.ideas) continue;
-      const id = item.id ?? crypto.randomUUID();
-      if (!byId.has(id)) {
-        byId.set(id, {
-          id,
-          title: item.title ?? "",
-          author: item.author ?? "",
-          publication: item.publication ?? "",
-          date: item.date ?? "",
-          link: item.link ?? "",
-          ideas: Array.isArray(item.ideas) ? item.ideas : [],
-          createdAt: item.createdAt ?? Date.now(),
-        });
-        added++;
+      const created = sources.add({
+        title: item.title ?? "",
+        author: item.author ?? "",
+        publication: item.publication ?? "",
+        date: item.date ?? "",
+        link: item.link ?? "",
+      });
+      if (Array.isArray(item.ideas)) {
+        cache.sources = cache.sources.map((s) =>
+          s.id === created.id ? { ...s, ideas: item.ideas } : s,
+        );
+        const s = cache.sources.find((x) => x.id === created.id);
+        if (s) persistSource(s);
       }
+      added++;
     }
-    writeSources([...byId.values()]);
     return added;
   },
 };
@@ -222,26 +296,30 @@ export function engagementRate(p: PublishedPost): number {
 
 export const analytics = {
   list(): PublishedPost[] {
-    return read<PublishedPost>(ANALYTICS_KEY).sort((a, b) => b.createdAt - a.createdAt);
+    return [...cache.analytics].sort((a, b) => b.createdAt - a.createdAt);
   },
   add(entry: Omit<PublishedPost, "id" | "createdAt">): PublishedPost {
-    const item: PublishedPost = {
-      ...entry,
-      id: crypto.randomUUID(),
-      createdAt: Date.now(),
-    };
-    write(ANALYTICS_KEY, [item, ...read<PublishedPost>(ANALYTICS_KEY)]);
+    const item: PublishedPost = { ...entry, id: crypto.randomUUID(), createdAt: Date.now() };
+    cache.analytics = [item, ...cache.analytics];
+    persist(
+      supabase.from("analytics").insert({
+        id: item.id,
+        text: item.text,
+        theme: item.theme,
+        format: item.format,
+        posted_at: item.postedAt,
+        metrics: item.metrics,
+        created_at: iso(item.createdAt),
+      }),
+    );
     return item;
   },
   remove(id: string): void {
-    write(
-      ANALYTICS_KEY,
-      read<PublishedPost>(ANALYTICS_KEY).filter((p) => p.id !== id),
-    );
+    cache.analytics = cache.analytics.filter((p) => p.id !== id);
+    persist(supabase.from("analytics").delete().eq("id", id));
   },
-  // Compact, statistical summary of what works — injected into generation.
   performanceProfile(): string {
-    const posts = read<PublishedPost>(ANALYTICS_KEY).filter((p) => p.metrics.impressions > 0);
+    const posts = cache.analytics.filter((p) => p.metrics.impressions > 0);
     if (posts.length < 2) return "";
 
     const ranked = [...posts].sort((a, b) => engagementRate(b) - engagementRate(a));
@@ -254,11 +332,8 @@ export const analytics = {
       Math.round(arr.reduce((s, p) => s + p.text.length, 0) / arr.length);
 
     const lines: string[] = [];
-    lines.push(
-      `Baseado em ${posts.length} posts publicados e suas métricas reais nesta audiência:`,
-    );
+    lines.push(`Baseado em ${posts.length} posts publicados e suas métricas reais nesta audiência:`);
 
-    // Best themes
     const byTheme = new Map<string, { sum: number; n: number }>();
     for (const p of posts) {
       const key = p.theme.trim() || "(sem tema)";
@@ -268,18 +343,14 @@ export const analytics = {
       byTheme.set(key, cur);
     }
     const themeRank = [...byTheme.entries()]
-      .map(([t, v]) => ({ theme: t, avg: v.sum / v.n, n: v.n }))
+      .map(([t, v]) => ({ theme: t, avg: v.sum / v.n }))
       .sort((a, b) => b.avg - a.avg);
     if (themeRank.length > 1 && themeRank[0].theme !== "(sem tema)") {
       lines.push(
-        `- Temas que mais engajam: ${themeRank
-          .slice(0, 2)
-          .map((t) => `${t.theme} (${pct(t.avg)})`)
-          .join(", ")}.`,
+        `- Temas que mais engajam: ${themeRank.slice(0, 2).map((t) => `${t.theme} (${pct(t.avg)})`).join(", ")}.`,
       );
     }
 
-    // Best format
     const byFormat = new Map<string, { sum: number; n: number }>();
     for (const p of posts) {
       const cur = byFormat.get(p.format) ?? { sum: 0, n: 0 };
@@ -296,12 +367,10 @@ export const analytics = {
       );
     }
 
-    // Length
     lines.push(
       `- Tamanho dos posts que mais engajam: ~${avgLen(top)} caracteres (os de pior desempenho: ~${avgLen(bottom)}).`,
     );
 
-    // Top exemplars
     lines.push("- Seus posts de MAIOR engajamento (use como bússola do que ressoa aqui):");
     top.slice(0, 2).forEach((p, i) => {
       const excerpt = p.text.length > 600 ? p.text.slice(0, 600) + "…" : p.text;
@@ -315,3 +384,80 @@ export const analytics = {
     return lines.join("\n");
   },
 };
+
+// ---- Migração do localStorage (uma vez) ----
+const MIGRATED_FLAG = "finmig:migrated";
+
+function readLegacy<T>(key: string): T[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as T[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function hasLegacyData(): boolean {
+  if (typeof window === "undefined") return false;
+  if (window.localStorage.getItem(MIGRATED_FLAG)) return false;
+  return (
+    readLegacy("finmig:references").length > 0 ||
+    readLegacy("finmig:sources").length > 0 ||
+    readLegacy("finmig:history").length > 0 ||
+    readLegacy("finmig:analytics").length > 0
+  );
+}
+
+export async function migrateFromLocalStorage(): Promise<void> {
+  const refs = readLegacy<ReferencePost>("finmig:references");
+  const srcs = readLegacy<SourceText>("finmig:sources");
+  const hist = readLegacy<HistoryEntry>("finmig:history");
+  const anal = readLegacy<PublishedPost>("finmig:analytics");
+
+  if (refs.length) {
+    await supabase.from("style_references").insert(
+      refs.map((r) => ({
+        content: r.content,
+        note: r.note ?? null,
+        created_at: r.createdAt ? iso(r.createdAt) : new Date().toISOString(),
+      })),
+    );
+  }
+  if (srcs.length) {
+    await supabase.from("sources").insert(
+      srcs.map((s) => ({
+        title: s.title ?? "",
+        author: s.author ?? "",
+        publication: s.publication ?? "",
+        date: s.date ?? "",
+        link: s.link ?? "",
+        ideas: Array.isArray(s.ideas) ? s.ideas : [],
+        created_at: s.createdAt ? iso(s.createdAt) : new Date().toISOString(),
+      })),
+    );
+  }
+  if (hist.length) {
+    await supabase.from("history").insert(
+      hist.map((h) => ({
+        topic: h.topic,
+        variations: h.variations ?? [],
+        created_at: h.createdAt ? iso(h.createdAt) : new Date().toISOString(),
+      })),
+    );
+  }
+  if (anal.length) {
+    await supabase.from("analytics").insert(
+      anal.map((a) => ({
+        text: a.text,
+        theme: a.theme ?? "",
+        format: a.format ?? "texto",
+        posted_at: a.postedAt ?? "",
+        metrics: a.metrics ?? {},
+        created_at: a.createdAt ? iso(a.createdAt) : new Date().toISOString(),
+      })),
+    );
+  }
+
+  window.localStorage.setItem(MIGRATED_FLAG, "1");
+}
