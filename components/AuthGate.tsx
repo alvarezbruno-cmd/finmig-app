@@ -10,8 +10,10 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const [email, setEmail] = useState("");
-  const [sent, setSent] = useState(false);
-  const [sending, setSending] = useState(false);
+  const [password, setPassword] = useState("");
+  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [busy, setBusy] = useState(false);
+  const [authMsg, setAuthMsg] = useState<string | null>(null);
   const [legacy, setLegacy] = useState(false);
   const [migrating, setMigrating] = useState(false);
 
@@ -40,17 +42,26 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
       });
   }, [session]);
 
-  async function sendLink(e: React.FormEvent) {
+  async function submitAuth(e: React.FormEvent) {
     e.preventDefault();
-    if (!email.trim()) return;
-    setSending(true);
-    const { error } = await supabase.auth.signInWithOtp({
-      email: email.trim(),
-      options: { emailRedirectTo: window.location.origin },
-    });
-    setSending(false);
-    if (error) alert(error.message);
-    else setSent(true);
+    if (!email.trim() || !password) return;
+    setBusy(true);
+    setAuthMsg(null);
+    const creds = { email: email.trim(), password };
+    const { data, error } =
+      mode === "signup"
+        ? await supabase.auth.signUp(creds)
+        : await supabase.auth.signInWithPassword(creds);
+    setBusy(false);
+    if (error) {
+      setAuthMsg(error.message);
+      return;
+    }
+    if (mode === "signup" && !data.session) {
+      setAuthMsg(
+        "Conta criada, mas o Supabase está exigindo confirmação de email. Desative 'Confirm email' no Supabase (Authentication → Providers → Email) ou confirme pelo email enviado.",
+      );
+    }
   }
 
   async function doMigrate() {
@@ -87,33 +98,49 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   if (!session) {
     return (
       <div className={centerBox}>
-        <div className="text-lg font-semibold">Entrar no Finmig</div>
-        {sent ? (
-          <p className="mt-3 text-sm text-[var(--color-text-dim)]">
-            Enviei um link de acesso para <strong>{email}</strong>. Abra seu email e clique no
-            link para entrar. Pode fechar esta aba.
-          </p>
-        ) : (
-          <form onSubmit={sendLink} className="mt-4 space-y-3">
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="seu@email.com"
-              className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm outline-none focus:border-[var(--color-accent)]"
-            />
-            <button
-              type="submit"
-              disabled={sending || !email.trim()}
-              className="w-full rounded-md bg-[var(--color-accent)] py-2 text-sm font-medium text-black disabled:opacity-50"
-            >
-              {sending ? "Enviando…" : "Enviar link de acesso"}
-            </button>
-            <p className="text-xs text-[var(--color-text-dim)]">
-              Você recebe um link mágico por email. Sem senha.
-            </p>
-          </form>
-        )}
+        <div className="text-lg font-semibold">
+          {mode === "signup" ? "Criar conta no Finmig" : "Entrar no Finmig"}
+        </div>
+        <form onSubmit={submitAuth} className="mt-4 space-y-3 text-left">
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="seu@email.com"
+            autoComplete="email"
+            className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm outline-none focus:border-[var(--color-accent)]"
+          />
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="Senha (mín. 6 caracteres)"
+            autoComplete={mode === "signup" ? "new-password" : "current-password"}
+            className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm outline-none focus:border-[var(--color-accent)]"
+          />
+          <button
+            type="submit"
+            disabled={busy || !email.trim() || password.length < 6}
+            className="w-full rounded-md bg-[var(--color-accent)] py-2 text-sm font-medium text-black disabled:opacity-50"
+          >
+            {busy ? "Aguarde…" : mode === "signup" ? "Criar conta" : "Entrar"}
+          </button>
+          {authMsg && (
+            <p className="text-xs text-[var(--color-danger)]">{authMsg}</p>
+          )}
+          <button
+            type="button"
+            onClick={() => {
+              setMode(mode === "signup" ? "signin" : "signup");
+              setAuthMsg(null);
+            }}
+            className="w-full text-center text-xs text-[var(--color-accent)] hover:underline"
+          >
+            {mode === "signup"
+              ? "Já tenho conta — entrar"
+              : "Não tenho conta — criar uma"}
+          </button>
+        </form>
       </div>
     );
   }
