@@ -88,12 +88,6 @@ export function Library() {
         </div>
       </header>
 
-      <div className="rounded-md border border-[var(--color-warn)]/40 bg-[var(--color-warn)]/10 px-3 py-2 text-xs text-[var(--color-warn)]">
-        Suas referências ficam salvas neste navegador (localStorage). Para não perdê-las,
-        use sempre a mesma URL do app e faça um <strong>Exportar backup</strong> de vez em
-        quando. Em breve vamos migrar para armazenamento na nuvem.
-      </div>
-
       <section className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
         <label className="block">
           <div className="mb-1 text-sm text-[var(--color-text-dim)]">
