@@ -36,7 +36,7 @@ export function Library() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `finmig-referencias-${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `linkedex-referencias-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -51,7 +51,7 @@ export function Library() {
         refresh();
         alert(`${added} referência(s) importada(s).`);
       } catch {
-        alert("Não consegui ler o arquivo. Confira se é um export válido do Finmig.");
+        alert("Não consegui ler o arquivo. Confira se é um export válido do LinkedEx.");
       }
     };
     reader.readAsText(file);

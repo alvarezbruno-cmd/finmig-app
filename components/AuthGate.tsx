@@ -99,7 +99,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     return (
       <div className={centerBox}>
         <div className="text-lg font-semibold">
-          {mode === "signup" ? "Criar conta no Finmig" : "Entrar no Finmig"}
+          {mode === "signup" ? "Criar conta no LinkedEx" : "Entrar no LinkedEx"}
         </div>
         <form onSubmit={submitAuth} className="mt-4 space-y-3 text-left">
           <input

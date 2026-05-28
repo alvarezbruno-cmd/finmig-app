@@ -4,7 +4,7 @@ import { AuthGate } from "@/components/AuthGate";
 import { NavBar } from "@/components/NavBar";
 
 export const metadata: Metadata = {
-  title: "Finmig — Gerador de posts LinkedIn",
+  title: "LinkedEx — Gerador de posts LinkedIn",
   description: "Gerador de posts LinkedIn com curadoria de estilo.",
 };
 
