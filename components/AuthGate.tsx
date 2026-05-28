@@ -121,7 +121,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
           <button
             type="submit"
             disabled={busy || !email.trim() || password.length < 6}
-            className="w-full rounded-md bg-[var(--color-accent)] py-2 text-sm font-medium text-black disabled:opacity-50"
+            className="w-full rounded-md bg-[var(--color-accent)] py-2 text-sm font-medium text-white disabled:opacity-50"
           >
             {busy ? "Aguarde…" : mode === "signup" ? "Criar conta" : "Entrar"}
           </button>

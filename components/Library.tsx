@@ -120,7 +120,7 @@ export function Library() {
         <button
           onClick={add}
           disabled={!content.trim()}
-          className="mt-3 rounded-md bg-[var(--color-accent)] px-4 py-2 text-sm font-medium text-black disabled:opacity-50"
+          className="mt-3 rounded-md bg-[var(--color-accent)] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
         >
           Adicionar à biblioteca
         </button>

@@ -208,7 +208,7 @@ export function Analytics() {
         <button
           onClick={save}
           disabled={!text.trim() || !metrics.impressions.trim()}
-          className="mt-3 rounded-md bg-[var(--color-accent)] px-4 py-2 text-sm font-medium text-black disabled:opacity-50"
+          className="mt-3 rounded-md bg-[var(--color-accent)] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
         >
           Salvar métricas
         </button>

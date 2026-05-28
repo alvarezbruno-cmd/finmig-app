@@ -138,7 +138,7 @@ export function Sources() {
         <button
           onClick={addSource}
           disabled={!form.title.trim() && !form.author.trim()}
-          className="mt-3 rounded-md bg-[var(--color-accent)] px-4 py-2 text-sm font-medium text-black disabled:opacity-50"
+          className="mt-3 rounded-md bg-[var(--color-accent)] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
         >
           Adicionar texto
         </button>
@@ -216,7 +216,7 @@ export function Sources() {
                   <button
                     onClick={() => addIdea(s.id)}
                     disabled={!(ideaDrafts[s.id] ?? "").trim()}
-                    className="shrink-0 self-stretch rounded-md bg-[var(--color-accent)] px-4 text-lg font-bold text-black disabled:opacity-40"
+                    className="shrink-0 self-stretch rounded-md bg-[var(--color-accent)] px-4 text-lg font-bold text-white disabled:opacity-40"
                     title="Adicionar ideia"
                   >
                     +

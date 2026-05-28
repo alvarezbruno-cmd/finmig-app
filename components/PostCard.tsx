@@ -129,7 +129,7 @@ export function PostCard({ variation, onChange }: Props) {
                 <button
                   onClick={rewriteSnippet}
                   disabled={rewriting || !instruction.trim()}
-                  className="rounded-md bg-[var(--color-accent)] px-3 py-2 text-sm font-medium text-black disabled:opacity-50"
+                  className="rounded-md bg-[var(--color-accent)] px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
                 >
                   {rewriting ? "..." : "Reescrever"}
                 </button>
@@ -139,7 +139,7 @@ export function PostCard({ variation, onChange }: Props) {
           <div className="mt-3 flex gap-2">
             <button
               onClick={saveEdit}
-              className="rounded-md bg-[var(--color-accent)] px-3 py-1.5 text-sm font-medium text-black"
+              className="rounded-md bg-[var(--color-accent)] px-3 py-1.5 text-sm font-medium text-white"
             >
               Salvar
             </button>

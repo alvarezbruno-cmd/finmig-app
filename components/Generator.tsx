@@ -157,7 +157,7 @@ export function Generator() {
                               className={
                                 "mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[10px] " +
                                 (selected
-                                  ? "border-[var(--color-accent)] bg-[var(--color-accent)] text-black"
+                                  ? "border-[var(--color-accent)] bg-[var(--color-accent)] text-white"
                                   : "border-[var(--color-border)]")
                               }
                             >
@@ -214,7 +214,7 @@ export function Generator() {
         <button
           onClick={generate}
           disabled={loading}
-          className="w-full rounded-md bg-[var(--color-accent)] py-3 font-medium text-black disabled:opacity-60"
+          className="w-full rounded-md bg-[var(--color-accent)] py-3 font-medium text-white disabled:opacity-60"
         >
           {loading ? "Costurando 3 variações…" : "Gerar 3 variações"}
         </button>

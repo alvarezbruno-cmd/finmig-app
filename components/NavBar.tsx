@@ -28,10 +28,10 @@ export function NavBar() {
                 key={l.href}
                 href={l.href}
                 className={
-                  "rounded-md px-3 py-1.5 text-sm transition " +
+                  "rounded-md px-3 py-1.5 text-sm font-medium transition " +
                   (active
-                    ? "bg-[var(--color-surface-2)] text-white"
-                    : "text-[var(--color-text-dim)] hover:text-white")
+                    ? "bg-[var(--color-surface-2)] text-[var(--color-accent)]"
+                    : "text-[var(--color-text-dim)] hover:text-[var(--color-text)]")
                 }
               >
                 {l.label}
@@ -40,7 +40,7 @@ export function NavBar() {
           })}
           <button
             onClick={() => supabase.auth.signOut()}
-            className="rounded-md px-3 py-1.5 text-sm text-[var(--color-text-dim)] transition hover:text-white"
+            className="rounded-md px-3 py-1.5 text-sm text-[var(--color-text-dim)] transition hover:text-[var(--color-text)]"
           >
             Sair
           </button>
