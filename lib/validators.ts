@@ -36,6 +36,19 @@ export const BANNED_PHRASES = [
   "tirar o chapéu",
   "deixar minha humilde opinião",
   "humilde opinião",
+  "porque, no fundo",
+  "e isso muda tudo",
+  "talvez o verdadeiro problema seja",
+  "mais do que nunca",
+  "e aqui está o ponto",
+  "a pergunta que fica é",
+  "o paradoxo é que",
+  "sofisticação silenciosa",
+  "elegantemente contraditório",
+  "a resposta não é simples",
+  "diferença brutal",
+  "no fundo, é isso que sustenta",
+  "não é sobre",
 ];
 
 export interface ValidationIssue {

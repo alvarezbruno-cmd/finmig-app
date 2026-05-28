@@ -57,6 +57,7 @@ export interface PostMetrics {
   saves: number;
   profileViews: number;
   followers: number;
+  sends: number;
 }
 
 export type PostFormat = "texto" | "link" | "imagem" | "carrossel";
@@ -68,6 +69,10 @@ export interface PublishedPost {
   format: PostFormat;
   postedAt: string;
   metrics: PostMetrics;
+  link?: string;
+  topRole?: string;
+  topLocation?: string;
+  topIndustry?: string;
   createdAt: number;
 }
 

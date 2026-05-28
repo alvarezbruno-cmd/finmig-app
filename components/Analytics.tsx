@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { analytics, engagementRate, history } from "@/lib/storage";
+import { parseLinkedInXlsx } from "@/lib/linkedinImport";
 import type { HistoryEntry, PostFormat, PublishedPost } from "@/lib/types";
 
 const FORMATS: PostFormat[] = ["texto", "link", "imagem", "carrossel"];
@@ -21,7 +22,10 @@ const emptyMetrics = {
   saves: "",
   profileViews: "",
   followers: "",
+  sends: "",
 };
+
+const emptyAudience = { link: "", topRole: "", topLocation: "", topIndustry: "" };
 
 const metricFields: { key: keyof typeof emptyMetrics; label: string }[] = [
   { key: "impressions", label: "Impressões" },
@@ -32,6 +36,7 @@ const metricFields: { key: keyof typeof emptyMetrics; label: string }[] = [
   { key: "saves", label: "Salvamentos" },
   { key: "profileViews", label: "Visualizações de perfil" },
   { key: "followers", label: "Seguidores obtidos" },
+  { key: "sends", label: "Envios no LinkedIn" },
 ];
 
 export function Analytics() {
@@ -42,6 +47,8 @@ export function Analytics() {
   const [format, setFormat] = useState<PostFormat>("texto");
   const [postedAt, setPostedAt] = useState("");
   const [metrics, setMetrics] = useState({ ...emptyMetrics });
+  const [audience, setAudience] = useState({ ...emptyAudience });
+  const [importMsg, setImportMsg] = useState<string | null>(null);
 
   function refresh() {
     setItems(analytics.list());
@@ -50,6 +57,37 @@ export function Analytics() {
   useEffect(() => {
     refresh();
   }, []);
+
+  async function importLinkedIn(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setImportMsg(null);
+    try {
+      const parsed = await parseLinkedInXlsx(await file.arrayBuffer());
+      setMetrics({
+        ...emptyMetrics,
+        ...Object.fromEntries(
+          Object.entries(parsed.metrics).map(([k, v]) => [k, String(v)]),
+        ),
+      });
+      if (parsed.postedAt) setPostedAt(parsed.postedAt);
+      setAudience({
+        link: parsed.link ?? "",
+        topRole: parsed.topRole ?? "",
+        topLocation: parsed.topLocation ?? "",
+        topIndustry: parsed.topIndustry ?? "",
+      });
+      const aud = [parsed.topRole, parsed.topLocation, parsed.topIndustry]
+        .filter(Boolean)
+        .join(" · ");
+      setImportMsg(
+        `Métricas importadas${parsed.postedAt ? ` (${parsed.postedAt})` : ""}${aud ? ` — público: ${aud}` : ""}. Agora cole o texto do post e salve.`,
+      );
+    } catch (err) {
+      setImportMsg(err instanceof Error ? err.message : "Falha ao ler o arquivo.");
+    }
+  }
 
   function save() {
     if (!text.trim() || !metrics.impressions.trim()) return;
@@ -67,13 +105,20 @@ export function Analytics() {
         saves: Number(metrics.saves) || 0,
         profileViews: Number(metrics.profileViews) || 0,
         followers: Number(metrics.followers) || 0,
+        sends: Number(metrics.sends) || 0,
       },
+      link: audience.link || undefined,
+      topRole: audience.topRole || undefined,
+      topLocation: audience.topLocation || undefined,
+      topIndustry: audience.topIndustry || undefined,
     });
     setText("");
     setTheme("");
     setFormat("texto");
     setPostedAt("");
     setMetrics({ ...emptyMetrics });
+    setAudience({ ...emptyAudience });
+    setImportMsg(null);
     refresh();
   }
 
@@ -126,7 +171,24 @@ export function Analytics() {
       </header>
 
       <section className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
-        <div className="mb-3 text-sm font-medium">Registrar post publicado</div>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <div className="text-sm font-medium">Registrar post publicado</div>
+          <label className="cursor-pointer rounded-md bg-[var(--color-accent)] px-3 py-1.5 text-sm font-medium text-white hover:opacity-90">
+            Importar arquivo do LinkedIn (.xlsx)
+            <input
+              type="file"
+              accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+              onChange={importLinkedIn}
+              className="hidden"
+            />
+          </label>
+        </div>
+
+        {importMsg && (
+          <div className="mb-3 rounded-md border border-[var(--color-accent)]/40 bg-[var(--color-surface-2)] px-3 py-2 text-xs text-[var(--color-text)]">
+            {importMsg}
+          </div>
+        )}
 
         {hist.length > 0 && (
           <label className="mb-3 block">
@@ -285,11 +347,18 @@ export function Analytics() {
                     </pre>
                     <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-[var(--color-text-dim)]">
                       <span>{p.metrics.impressions} impr.</span>
+                      <span>{p.metrics.reached} alcanç.</span>
                       <span>{p.metrics.reactions} reações</span>
                       <span>{p.metrics.comments} coment.</span>
                       <span>{p.metrics.shares} compart.</span>
                       <span>{p.metrics.saves} saves</span>
+                      {p.metrics.sends > 0 && <span>{p.metrics.sends} envios</span>}
                     </div>
+                    {(p.topRole || p.topLocation || p.topIndustry) && (
+                      <div className="mt-1 text-xs text-[var(--color-text-dim)]">
+                        Público: {[p.topRole, p.topLocation, p.topIndustry].filter(Boolean).join(" · ")}
+                      </div>
+                    )}
                   </div>
                   <button
                     onClick={() => remove(p.id)}
