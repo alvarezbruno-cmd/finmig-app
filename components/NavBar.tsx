@@ -7,6 +7,7 @@ const links = [
   { href: "/", label: "Gerar" },
   { href: "/sources", label: "Textos" },
   { href: "/library", label: "Referências" },
+  { href: "/analytics", label: "Analytics" },
   { href: "/history", label: "Histórico" },
 ];
 

@@ -140,9 +140,16 @@ export function buildUserMessage(
   topic: string,
   ideas: SelectedIdea[],
   extraNotes?: string,
+  performance?: string,
 ): string {
   const parts: string[] = [];
   parts.push(`# Tópico do post\n\n${topic.trim()}`);
+
+  if (performance?.trim()) {
+    parts.push(
+      `# O que funciona com esta audiência (dados reais de posts publicados)\n\nUse isto como orientação estratégica: privilegie os temas, o tamanho e a abordagem que comprovadamente engajam mais. É bússola, não molde — não copie os exemplos nem sacrifique a voz do autor por causa deles.\n\n${performance.trim()}`,
+    );
+  }
 
   if (ideas.length > 0) {
     const list = ideas
@@ -169,7 +176,7 @@ export function buildUserMessage(
   }
 
   parts.push(
-    "Gere as 3 variações conforme as regras. Duas coisas são obrigatórias: (1) cada post ABRE com uma frase de curiosidade diferente — fato pouco conhecido ou ângulo contraintuitivo, sempre VERDADEIRO e ancorado nas ideias acima (nunca invente dado); (2) o resto reproduz a VOZ dos posts de referência (ritmo, densidade, registro, recursos retóricos). Costure as ideias selecionadas num argumento único, creditando autores externos de forma integrada. Sem clichês, sem fórmula de influencer, sem enumerar fontes, sem travessões, sem 'Não é X. É Y.'. As 3 diferem só no ângulo, nunca no tom. Responda no formato de delimitadores @@@VARIATION@@@ ... @@@END@@@.",
+    "Gere as 3 variações conforme as regras. Obrigatório: (1) cada post ABRE com uma frase de curiosidade diferente — fato pouco conhecido ou ângulo contraintuitivo, sempre VERDADEIRO e ancorado nas ideias acima (nunca invente dado); (2) reproduza a VOZ dos posts de referência (ritmo, densidade, registro, recursos retóricos); (3) se houver dados de performance acima, incline tema/tamanho/abordagem para o que comprovadamente engaja. Costure as ideias selecionadas num argumento único, creditando autores externos de forma integrada. Sem clichês, sem fórmula de influencer, sem enumerar fontes, sem travessões, sem 'Não é X. É Y.'. As 3 diferem só no ângulo, nunca no tom. Responda no formato de delimitadores @@@VARIATION@@@ ... @@@END@@@.",
   );
   return parts.join("\n\n");
 }

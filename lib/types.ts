@@ -45,6 +45,30 @@ export interface GenerateRequest {
   ideas: SelectedIdea[];
   extraNotes?: string;
   references: string[];
+  performance?: string;
+}
+
+export interface PostMetrics {
+  impressions: number;
+  reached: number;
+  reactions: number;
+  comments: number;
+  shares: number;
+  saves: number;
+  profileViews: number;
+  followers: number;
+}
+
+export type PostFormat = "texto" | "link" | "imagem" | "carrossel";
+
+export interface PublishedPost {
+  id: string;
+  text: string;
+  theme: string;
+  format: PostFormat;
+  postedAt: string;
+  metrics: PostMetrics;
+  createdAt: number;
 }
 
 export interface RewriteRequest {

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { PostCard } from "./PostCard";
-import { history, references, sources } from "@/lib/storage";
+import { analytics, history, references, sources } from "@/lib/storage";
 import type { ReferencePost, SourceText, Variation } from "@/lib/types";
 
 export function Generator() {
@@ -14,10 +14,12 @@ export function Generator() {
   const [loading, setLoading] = useState(false);
   const [variations, setVariations] = useState<Variation[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [learnedFrom, setLearnedFrom] = useState(0);
 
   useEffect(() => {
     setRefs(references.list());
     setTexts(sources.list());
+    setLearnedFrom(analytics.list().filter((p) => p.metrics.impressions > 0).length);
   }, []);
 
   function toggleIdea(id: string) {
@@ -48,6 +50,7 @@ export function Generator() {
           ideas,
           extraNotes,
           references: references.list().map((r) => r.content),
+          performance: analytics.performanceProfile(),
         }),
       });
 
@@ -200,6 +203,13 @@ export function Generator() {
             </>
           )}
         </div>
+
+        {learnedFrom >= 2 && (
+          <div className="rounded-md border border-[var(--color-ok)]/40 bg-[var(--color-ok)]/10 px-3 py-2 text-sm text-[var(--color-ok)]">
+            Aprendendo com {learnedFrom} posts publicados — a geração vai priorizar o que
+            mais engajou.
+          </div>
+        )}
 
         <button
           onClick={generate}

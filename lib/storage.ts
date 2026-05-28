@@ -1,10 +1,18 @@
 "use client";
 
-import type { HistoryEntry, Idea, ReferencePost, SelectedIdea, SourceText } from "./types";
+import type {
+  HistoryEntry,
+  Idea,
+  PublishedPost,
+  ReferencePost,
+  SelectedIdea,
+  SourceText,
+} from "./types";
 
 const REF_KEY = "finmig:references";
 const HIST_KEY = "finmig:history";
 const SRC_KEY = "finmig:sources";
+const ANALYTICS_KEY = "finmig:analytics";
 
 function read<T>(key: string): T[] {
   if (typeof window === "undefined") return [];
@@ -203,5 +211,107 @@ export const sources = {
     }
     writeSources([...byId.values()]);
     return added;
+  },
+};
+
+export function engagementRate(p: PublishedPost): number {
+  const { impressions, reactions, comments, shares, saves } = p.metrics;
+  if (!impressions) return 0;
+  return (reactions + comments + shares + saves) / impressions;
+}
+
+export const analytics = {
+  list(): PublishedPost[] {
+    return read<PublishedPost>(ANALYTICS_KEY).sort((a, b) => b.createdAt - a.createdAt);
+  },
+  add(entry: Omit<PublishedPost, "id" | "createdAt">): PublishedPost {
+    const item: PublishedPost = {
+      ...entry,
+      id: crypto.randomUUID(),
+      createdAt: Date.now(),
+    };
+    write(ANALYTICS_KEY, [item, ...read<PublishedPost>(ANALYTICS_KEY)]);
+    return item;
+  },
+  remove(id: string): void {
+    write(
+      ANALYTICS_KEY,
+      read<PublishedPost>(ANALYTICS_KEY).filter((p) => p.id !== id),
+    );
+  },
+  // Compact, statistical summary of what works — injected into generation.
+  performanceProfile(): string {
+    const posts = read<PublishedPost>(ANALYTICS_KEY).filter((p) => p.metrics.impressions > 0);
+    if (posts.length < 2) return "";
+
+    const ranked = [...posts].sort((a, b) => engagementRate(b) - engagementRate(a));
+    const topCount = Math.max(1, Math.round(ranked.length / 3));
+    const top = ranked.slice(0, topCount);
+    const bottom = ranked.slice(-topCount);
+
+    const pct = (n: number) => `${(n * 100).toFixed(1)}%`;
+    const avgLen = (arr: PublishedPost[]) =>
+      Math.round(arr.reduce((s, p) => s + p.text.length, 0) / arr.length);
+
+    const lines: string[] = [];
+    lines.push(
+      `Baseado em ${posts.length} posts publicados e suas métricas reais nesta audiência:`,
+    );
+
+    // Best themes
+    const byTheme = new Map<string, { sum: number; n: number }>();
+    for (const p of posts) {
+      const key = p.theme.trim() || "(sem tema)";
+      const cur = byTheme.get(key) ?? { sum: 0, n: 0 };
+      cur.sum += engagementRate(p);
+      cur.n += 1;
+      byTheme.set(key, cur);
+    }
+    const themeRank = [...byTheme.entries()]
+      .map(([t, v]) => ({ theme: t, avg: v.sum / v.n, n: v.n }))
+      .sort((a, b) => b.avg - a.avg);
+    if (themeRank.length > 1 && themeRank[0].theme !== "(sem tema)") {
+      lines.push(
+        `- Temas que mais engajam: ${themeRank
+          .slice(0, 2)
+          .map((t) => `${t.theme} (${pct(t.avg)})`)
+          .join(", ")}.`,
+      );
+    }
+
+    // Best format
+    const byFormat = new Map<string, { sum: number; n: number }>();
+    for (const p of posts) {
+      const cur = byFormat.get(p.format) ?? { sum: 0, n: 0 };
+      cur.sum += engagementRate(p);
+      cur.n += 1;
+      byFormat.set(p.format, cur);
+    }
+    const formatRank = [...byFormat.entries()]
+      .map(([f, v]) => ({ format: f, avg: v.sum / v.n }))
+      .sort((a, b) => b.avg - a.avg);
+    if (formatRank.length > 1) {
+      lines.push(
+        `- Formato com melhor engajamento: ${formatRank[0].format} (${pct(formatRank[0].avg)}), vs ${formatRank[formatRank.length - 1].format} (${pct(formatRank[formatRank.length - 1].avg)}).`,
+      );
+    }
+
+    // Length
+    lines.push(
+      `- Tamanho dos posts que mais engajam: ~${avgLen(top)} caracteres (os de pior desempenho: ~${avgLen(bottom)}).`,
+    );
+
+    // Top exemplars
+    lines.push("- Seus posts de MAIOR engajamento (use como bússola do que ressoa aqui):");
+    top.slice(0, 2).forEach((p, i) => {
+      const excerpt = p.text.length > 600 ? p.text.slice(0, 600) + "…" : p.text;
+      lines.push(`  [Exemplo ${i + 1} — engajamento ${pct(engagementRate(p))}]\n${excerpt}`);
+    });
+
+    lines.push(
+      "Incline o novo post na direção do que funciona acima (tema, tamanho, abordagem dos melhores exemplos), sem copiá-los e sem perder a voz do autor.",
+    );
+
+    return lines.join("\n");
   },
 };
