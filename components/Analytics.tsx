@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { analytics, engagementRate, history } from "@/lib/storage";
 import { parseLinkedInXlsx } from "@/lib/linkedinImport";
-import type { HistoryEntry, PostFormat, PublishedPost } from "@/lib/types";
+import type { Demographics, HistoryEntry, PostFormat, PublishedPost } from "@/lib/types";
 
 const FORMATS: PostFormat[] = ["texto", "link", "imagem", "carrossel"];
 const formatLabel: Record<PostFormat, string> = {
@@ -39,6 +39,31 @@ const metricFields: { key: keyof typeof emptyMetrics; label: string }[] = [
   { key: "sends", label: "Envios no LinkedIn" },
 ];
 
+function Bar({
+  label,
+  display,
+  ratio,
+}: {
+  label: string;
+  display: string;
+  ratio: number;
+}) {
+  const w = Math.max(2, Math.min(100, ratio * 100));
+  return (
+    <div className="flex items-center gap-2 text-xs">
+      <div className="w-36 shrink-0 truncate text-[var(--color-text-dim)]" title={label}>
+        {label}
+      </div>
+      <div className="h-3 flex-1 overflow-hidden rounded bg-[var(--color-surface-2)]">
+        <div className="h-3 rounded bg-[var(--color-accent)]" style={{ width: `${w}%` }} />
+      </div>
+      <div className="w-14 shrink-0 text-right tabular-nums text-[var(--color-text)]">
+        {display}
+      </div>
+    </div>
+  );
+}
+
 export function Analytics() {
   const [items, setItems] = useState<PublishedPost[]>([]);
   const [hist, setHist] = useState<HistoryEntry[]>([]);
@@ -48,6 +73,7 @@ export function Analytics() {
   const [postedAt, setPostedAt] = useState("");
   const [metrics, setMetrics] = useState({ ...emptyMetrics });
   const [audience, setAudience] = useState({ ...emptyAudience });
+  const [demographics, setDemographics] = useState<Demographics | null>(null);
   const [importMsg, setImportMsg] = useState<string | null>(null);
 
   function refresh() {
@@ -78,6 +104,7 @@ export function Analytics() {
         topLocation: parsed.topLocation ?? "",
         topIndustry: parsed.topIndustry ?? "",
       });
+      setDemographics(parsed.demographics ?? null);
       const aud = [parsed.topRole, parsed.topLocation, parsed.topIndustry]
         .filter(Boolean)
         .join(" · ");
@@ -111,6 +138,7 @@ export function Analytics() {
       topRole: audience.topRole || undefined,
       topLocation: audience.topLocation || undefined,
       topIndustry: audience.topIndustry || undefined,
+      demographics: demographics ?? undefined,
     });
     setText("");
     setTheme("");
@@ -118,6 +146,7 @@ export function Analytics() {
     setPostedAt("");
     setMetrics({ ...emptyMetrics });
     setAudience({ ...emptyAudience });
+    setDemographics(null);
     setImportMsg(null);
     refresh();
   }
@@ -154,6 +183,44 @@ export function Analytics() {
       .sort((a, b) => b.avg - a.avg);
     const topPosts = [...valid].sort((a, b) => engagementRate(b) - engagementRate(a));
     return { valid, avgEng, fmt, thm, topPosts };
+  }, [items]);
+
+  const audienceAgg = useMemo(() => {
+    const dims = new Map<string, Map<string, { sum: number; n: number }>>();
+    for (const p of items) {
+      if (!p.demographics) continue;
+      for (const [dim, entries] of Object.entries(p.demographics)) {
+        const m = dims.get(dim) ?? new Map<string, { sum: number; n: number }>();
+        for (const e of entries) {
+          const cur = m.get(e.label) ?? { sum: 0, n: 0 };
+          cur.sum += e.pct;
+          cur.n += 1;
+          m.set(e.label, cur);
+        }
+        dims.set(dim, m);
+      }
+    }
+    const order = [
+      "Localidade",
+      "Nível de experiência",
+      "Setor",
+      "Cargo",
+      "Tamanho da empresa",
+      "Empresa",
+    ];
+    return [...dims.entries()]
+      .map(([dimension, m]) => ({
+        dimension,
+        entries: [...m.entries()]
+          .map(([label, v]) => ({ label, pct: v.sum / v.n }))
+          .sort((a, b) => b.pct - a.pct)
+          .slice(0, 6),
+      }))
+      .sort((a, b) => {
+        const ia = order.indexOf(a.dimension);
+        const ib = order.indexOf(b.dimension);
+        return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+      });
   }, [items]);
 
   const pct = (n: number) => `${(n * 100).toFixed(1)}%`;
@@ -308,6 +375,53 @@ export function Analytics() {
             <div className="text-xs text-[var(--color-text-dim)]">
               {pct(stats.thm[0].avg)} de engajamento
             </div>
+          </div>
+        </section>
+      )}
+
+      {stats && stats.topPosts.length > 0 && (
+        <section className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+          <div className="mb-3 text-sm font-medium">Engajamento por post</div>
+          <div className="space-y-1.5">
+            {stats.topPosts.slice(0, 12).map((p) => {
+              const er = engagementRate(p);
+              const max = engagementRate(stats.topPosts[0]) || 1;
+              const title = (p.theme || p.text).slice(0, 40);
+              return (
+                <Bar key={p.id} label={title} display={pct(er)} ratio={er / max} />
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {audienceAgg.length > 0 && (
+        <section className="space-y-4">
+          <div className="text-sm font-medium">Público (média dos posts importados)</div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {audienceAgg.map((dim) => {
+              const max = dim.entries[0]?.pct || 1;
+              return (
+                <div
+                  key={dim.dimension}
+                  className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4"
+                >
+                  <div className="mb-3 text-xs uppercase tracking-wider text-[var(--color-text-dim)]">
+                    {dim.dimension}
+                  </div>
+                  <div className="space-y-1.5">
+                    {dim.entries.map((e) => (
+                      <Bar
+                        key={e.label}
+                        label={e.label}
+                        display={`${e.pct.toFixed(0)}%`}
+                        ratio={e.pct / max}
+                      />
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </section>
       )}

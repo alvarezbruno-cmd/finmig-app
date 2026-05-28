@@ -62,6 +62,12 @@ export interface PostMetrics {
 
 export type PostFormat = "texto" | "link" | "imagem" | "carrossel";
 
+export interface DemoEntry {
+  label: string;
+  pct: number;
+}
+export type Demographics = Record<string, DemoEntry[]>;
+
 export interface PublishedPost {
   id: string;
   text: string;
@@ -73,6 +79,7 @@ export interface PublishedPost {
   topRole?: string;
   topLocation?: string;
   topIndustry?: string;
+  demographics?: Demographics;
   createdAt: number;
 }
 

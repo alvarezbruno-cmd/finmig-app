@@ -53,6 +53,13 @@ interface HistoryRow {
   variations: HistoryEntry["variations"];
   created_at: string;
 }
+interface AnalyticsMeta {
+  link?: string;
+  topRole?: string;
+  topLocation?: string;
+  topIndustry?: string;
+  demographics?: PublishedPost["demographics"];
+}
 interface AnalyticsRow {
   id: string;
   text: string;
@@ -60,6 +67,7 @@ interface AnalyticsRow {
   format: string;
   posted_at: string;
   metrics: PostMetrics;
+  meta: AnalyticsMeta | null;
   created_at: string;
 }
 
@@ -93,15 +101,23 @@ export async function hydrate(): Promise<void> {
     variations: Array.isArray(x.variations) ? x.variations : [],
     createdAt: new Date(x.created_at).getTime(),
   }));
-  cache.analytics = ((a.data ?? []) as AnalyticsRow[]).map((x) => ({
-    id: x.id,
-    text: x.text,
-    theme: x.theme ?? "",
-    format: (x.format ?? "texto") as PostFormat,
-    postedAt: x.posted_at ?? "",
-    metrics: x.metrics,
-    createdAt: new Date(x.created_at).getTime(),
-  }));
+  cache.analytics = ((a.data ?? []) as AnalyticsRow[]).map((x) => {
+    const meta = x.meta ?? {};
+    return {
+      id: x.id,
+      text: x.text,
+      theme: x.theme ?? "",
+      format: (x.format ?? "texto") as PostFormat,
+      postedAt: x.posted_at ?? "",
+      metrics: x.metrics,
+      link: meta.link,
+      topRole: meta.topRole,
+      topLocation: meta.topLocation,
+      topIndustry: meta.topIndustry,
+      demographics: meta.demographics,
+      createdAt: new Date(x.created_at).getTime(),
+    };
+  });
 }
 
 export const references = {
@@ -309,6 +325,13 @@ export const analytics = {
         format: item.format,
         posted_at: item.postedAt,
         metrics: item.metrics,
+        meta: {
+          link: item.link,
+          topRole: item.topRole,
+          topLocation: item.topLocation,
+          topIndustry: item.topIndustry,
+          demographics: item.demographics,
+        },
         created_at: iso(item.createdAt),
       }),
     );

@@ -1,4 +1,4 @@
-import type { PostMetrics } from "./types";
+import type { Demographics, PostMetrics } from "./types";
 
 export interface LinkedInImport {
   postedAt?: string;
@@ -7,6 +7,7 @@ export interface LinkedInImport {
   topRole?: string;
   topLocation?: string;
   topIndustry?: string;
+  demographics?: Demographics;
 }
 
 const MONTHS: Record<string, string> = {
@@ -84,6 +85,8 @@ export async function parseLinkedInXlsx(buffer: ArrayBuffer): Promise<LinkedInIm
     throw new Error("Não encontrei métricas nesse arquivo. É o export de uma publicação do LinkedIn?");
   }
 
+  const demographics = parseDemographics(XLSX, wb);
+
   return {
     postedAt: dateRaw ? parsePtDate(dateRaw) : undefined,
     link: get("url da publicação"),
@@ -91,5 +94,41 @@ export async function parseLinkedInXlsx(buffer: ArrayBuffer): Promise<LinkedInIm
     topRole: get("principal cargo"),
     topLocation: get("principal localidade"),
     topIndustry: get("principal setor"),
+    demographics: Object.keys(demographics).length ? demographics : undefined,
   };
+}
+
+function parsePct(value: string): number {
+  const v = value.trim().toLowerCase();
+  if (v.includes("menos de 1")) return 0.5;
+  const n = parseFloat(v.replace("%", "").replace(",", ".").trim());
+  return Number.isFinite(n) ? n : 0;
+}
+
+function parseDemographics(
+  XLSX: typeof import("xlsx"),
+  wb: import("xlsx").WorkBook,
+): Demographics {
+  const sheet =
+    wb.Sheets["Principais dados demográficos"] ??
+    wb.Sheets[wb.SheetNames.find((n) => /demogr/i.test(n)) ?? ""];
+  if (!sheet) return {};
+
+  const rows = XLSX.utils.sheet_to_json<(string | number)[]>(sheet, {
+    header: 1,
+    blankrows: false,
+    raw: false,
+  });
+
+  const demo: Demographics = {};
+  for (const row of rows) {
+    if (!Array.isArray(row) || row.length < 3) continue;
+    const dimension = String(row[0]).trim();
+    const label = String(row[1]).trim();
+    const pctRaw = String(row[2]).trim();
+    if (!dimension || dimension.toLowerCase() === "categoria") continue;
+    if (!label) continue;
+    (demo[dimension] ??= []).push({ label, pct: parsePct(pctRaw) });
+  }
+  return demo;
 }
