@@ -2,6 +2,7 @@ import type { Demographics, PostMetrics } from "./types";
 
 export interface LinkedInImport {
   postedAt?: string;
+  postedTime?: string;
   link?: string;
   metrics: Partial<PostMetrics>;
   topRole?: string;
@@ -80,6 +81,7 @@ export async function parseLinkedInXlsx(buffer: ArrayBuffer): Promise<LinkedInIm
   assign("envios no linkedin", "sends");
 
   const dateRaw = get("data da publicação");
+  const timeRaw = get("hora da publicação");
 
   if (Object.keys(metrics).length === 0) {
     throw new Error("Não encontrei métricas nesse arquivo. É o export de uma publicação do LinkedIn?");
@@ -89,6 +91,7 @@ export async function parseLinkedInXlsx(buffer: ArrayBuffer): Promise<LinkedInIm
 
   return {
     postedAt: dateRaw ? parsePtDate(dateRaw) : undefined,
+    postedTime: timeRaw && /^\d{1,2}:\d{2}/.test(timeRaw) ? timeRaw : undefined,
     link: get("url da publicação"),
     metrics,
     topRole: get("principal cargo"),

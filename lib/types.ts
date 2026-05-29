@@ -82,6 +82,7 @@ export interface PublishedPost {
   theme: string;
   format: PostFormat;
   postedAt: string;
+  postedTime?: string;
   metrics: PostMetrics;
   link?: string;
   topRole?: string;

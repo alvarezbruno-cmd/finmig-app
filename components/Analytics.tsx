@@ -77,6 +77,8 @@ export function Analytics() {
   const [theme, setTheme] = useState("");
   const [format, setFormat] = useState<PostFormat>("texto");
   const [postedAt, setPostedAt] = useState("");
+  const [postedTime, setPostedTime] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [metrics, setMetrics] = useState({ ...emptyMetrics });
   const [audience, setAudience] = useState({ ...emptyAudience });
   const [demographics, setDemographics] = useState<Demographics | null>(null);
@@ -123,6 +125,7 @@ export function Analytics() {
         ),
       });
       if (parsed.postedAt) setPostedAt(parsed.postedAt);
+      if (parsed.postedTime) setPostedTime(parsed.postedTime);
       setAudience({
         link: parsed.link ?? "",
         topRole: parsed.topRole ?? "",
@@ -141,13 +144,28 @@ export function Analytics() {
     }
   }
 
+  function resetForm() {
+    setText("");
+    setTheme("");
+    setFormat("texto");
+    setPostedAt("");
+    setPostedTime("");
+    setMetrics({ ...emptyMetrics });
+    setAudience({ ...emptyAudience });
+    setDemographics(null);
+    setTerritory("");
+    setImportMsg(null);
+    setEditingId(null);
+  }
+
   function save() {
     if (!text.trim() || !metrics.impressions.trim()) return;
-    analytics.add({
+    const payload = {
       text: text.trim(),
       theme: theme.trim(),
       format,
       postedAt: postedAt || new Date().toISOString().slice(0, 10),
+      postedTime: postedTime || undefined,
       metrics: {
         impressions: Number(metrics.impressions) || 0,
         reached: Number(metrics.reached) || 0,
@@ -165,17 +183,41 @@ export function Analytics() {
       topIndustry: audience.topIndustry || undefined,
       demographics: demographics ?? undefined,
       territory: territory || undefined,
-    });
-    setText("");
-    setTheme("");
-    setFormat("texto");
-    setPostedAt("");
-    setMetrics({ ...emptyMetrics });
-    setAudience({ ...emptyAudience });
-    setDemographics(null);
-    setTerritory("");
-    setImportMsg(null);
+    };
+    if (editingId) analytics.update(editingId, payload);
+    else analytics.add(payload);
+    resetForm();
     refresh();
+  }
+
+  function startEdit(p: PublishedPost) {
+    setEditingId(p.id);
+    setText(p.text);
+    setTheme(p.theme);
+    setFormat(p.format);
+    setPostedAt(p.postedAt);
+    setPostedTime(p.postedTime ?? "");
+    setMetrics({
+      impressions: String(p.metrics.impressions ?? ""),
+      reached: String(p.metrics.reached ?? ""),
+      reactions: String(p.metrics.reactions ?? ""),
+      comments: String(p.metrics.comments ?? ""),
+      shares: String(p.metrics.shares ?? ""),
+      saves: String(p.metrics.saves ?? ""),
+      profileViews: String(p.metrics.profileViews ?? ""),
+      followers: String(p.metrics.followers ?? ""),
+      sends: String(p.metrics.sends ?? ""),
+    });
+    setAudience({
+      link: p.link ?? "",
+      topRole: p.topRole ?? "",
+      topLocation: p.topLocation ?? "",
+      topIndustry: p.topIndustry ?? "",
+    });
+    setDemographics(p.demographics ?? null);
+    setTerritory(p.territory ?? "");
+    setImportMsg(null);
+    if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   function remove(id: string) {
@@ -267,6 +309,77 @@ export function Analytics() {
       .sort((a, b) => b.n - a.n);
   }, [items]);
 
+  const WEEKDAYS = [
+    "domingo",
+    "segunda",
+    "terça",
+    "quarta",
+    "quinta",
+    "sexta",
+    "sábado",
+  ];
+
+  const postingAdvice = useMemo(() => {
+    const valid = items.filter((p) => p.postedAt && p.metrics.impressions > 0);
+    if (valid.length === 0) return null;
+
+    const dates = valid
+      .map((p) => new Date(p.postedAt + "T12:00:00"))
+      .sort((a, b) => a.getTime() - b.getTime());
+    const last = dates[dates.length - 1];
+    const daysSince = Math.floor((Date.now() - last.getTime()) / 86400000);
+
+    let avgGap: number | null = null;
+    if (dates.length >= 2) {
+      let sum = 0;
+      for (let i = 1; i < dates.length; i++) {
+        sum += (dates[i].getTime() - dates[i - 1].getTime()) / 86400000;
+      }
+      avgGap = sum / (dates.length - 1);
+    }
+
+    const wd = new Map<number, { sum: number; n: number }>();
+    for (const p of valid) {
+      const d = new Date(p.postedAt + "T12:00:00").getDay();
+      const c = wd.get(d) ?? { sum: 0, n: 0 };
+      c.sum += engagementRate(p);
+      c.n += 1;
+      wd.set(d, c);
+    }
+    const bestWeekday = [...wd.entries()]
+      .map(([d, v]) => ({ d, avg: v.sum / v.n }))
+      .sort((a, b) => b.avg - a.avg)[0];
+
+    const hr = new Map<number, { sum: number; n: number }>();
+    for (const p of valid) {
+      if (!p.postedTime) continue;
+      const h = parseInt(p.postedTime.split(":")[0], 10);
+      if (Number.isNaN(h)) continue;
+      const c = hr.get(h) ?? { sum: 0, n: 0 };
+      c.sum += engagementRate(p);
+      c.n += 1;
+      hr.set(h, c);
+    }
+    const bestHour =
+      [...hr.entries()].map(([h, v]) => ({ h, avg: v.sum / v.n })).sort((a, b) => b.avg - a.avg)[0] ??
+      null;
+
+    // próxima ocorrência do melhor dia da semana
+    const today = new Date().getDay();
+    const diff = ((bestWeekday.d - today + 7) % 7) || 7;
+    const next = new Date();
+    next.setDate(next.getDate() + diff);
+
+    return {
+      count: valid.length,
+      daysSince,
+      avgGap,
+      bestWeekday,
+      bestHour,
+      nextDate: next,
+    };
+  }, [items]);
+
   const pct = (n: number) => `${(n * 100).toFixed(1)}%`;
   const field =
     "w-full rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm outline-none focus:border-[var(--color-accent)]";
@@ -280,6 +393,46 @@ export function Analytics() {
           funciona — e a aba Gerar passa a priorizar esses padrões ao criar novos posts.
         </p>
       </header>
+
+      {postingAdvice && (
+        <section className="rounded-xl border border-[var(--color-accent)]/30 bg-[var(--color-surface-2)] p-4">
+          <div className="mb-1 text-sm font-medium">Quando postar a seguir</div>
+          <div className="text-sm text-[var(--color-text)]">
+            Última publicação há{" "}
+            <strong>
+              {postingAdvice.daysSince} dia{postingAdvice.daysSince === 1 ? "" : "s"}
+            </strong>
+            {postingAdvice.avgGap != null && (
+              <> · sua cadência média é a cada {postingAdvice.avgGap.toFixed(0)} dias</>
+            )}
+            .
+          </div>
+          <div className="mt-1 text-sm text-[var(--color-text)]">
+            Melhor dia pelos seus dados:{" "}
+            <strong className="capitalize">{WEEKDAYS[postingAdvice.bestWeekday.d]}</strong> (
+            {pct(postingAdvice.bestWeekday.avg)} de engajamento)
+            {postingAdvice.bestHour && (
+              <>
+                {" "}
+                · melhor horário: <strong>~{postingAdvice.bestHour.h}h</strong>
+              </>
+            )}
+            .
+          </div>
+          <div className="mt-2 rounded-md bg-[var(--color-accent)]/10 px-3 py-2 text-sm text-[var(--color-accent)]">
+            Sugestão: poste na próxima{" "}
+            <strong className="capitalize">{WEEKDAYS[postingAdvice.bestWeekday.d]}</strong> (
+            {postingAdvice.nextDate.toLocaleDateString("pt-BR")})
+            {postingAdvice.bestHour ? ` por volta de ${postingAdvice.bestHour.h}h` : ""}.
+          </div>
+          {postingAdvice.count < 4 && (
+            <div className="mt-2 text-xs text-[var(--color-text-dim)]">
+              Baseado em poucos posts ({postingAdvice.count}) — a recomendação fica mais
+              confiável conforme você registra mais. Mire em 3–5 posts/semana.
+            </div>
+          )}
+        </section>
+      )}
 
       <section className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
         <div className="mb-1 text-sm font-medium">Territórios temáticos</div>
@@ -366,9 +519,11 @@ export function Analytics() {
 
       <section className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <div className="text-sm font-medium">Registrar post publicado</div>
+          <div className="text-sm font-medium">
+            {editingId ? "Editar post registrado" : "Registrar post publicado"}
+          </div>
           <label className="cursor-pointer rounded-md bg-[var(--color-accent)] px-3 py-1.5 text-sm font-medium text-white hover:opacity-90">
-            Importar arquivo do LinkedIn (.xlsx)
+            {editingId ? "Atualizar com novo .xlsx" : "Importar arquivo do LinkedIn (.xlsx)"}
             <input
               type="file"
               accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -437,12 +592,21 @@ export function Analytics() {
               </option>
             ))}
           </select>
-          <input
-            type="date"
-            value={postedAt}
-            onChange={(e) => setPostedAt(e.target.value)}
-            className={field}
-          />
+          <div className="flex gap-2">
+            <input
+              type="date"
+              value={postedAt}
+              onChange={(e) => setPostedAt(e.target.value)}
+              className={field}
+            />
+            <input
+              type="time"
+              value={postedTime}
+              onChange={(e) => setPostedTime(e.target.value)}
+              title="Hora da publicação"
+              className={`${field} max-w-[7rem]`}
+            />
+          </div>
         </div>
 
         {terrs.length > 0 && (
@@ -476,13 +640,23 @@ export function Analytics() {
           ))}
         </div>
 
-        <button
-          onClick={save}
-          disabled={!text.trim() || !metrics.impressions.trim()}
-          className="mt-3 rounded-md bg-[var(--color-accent)] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-        >
-          Salvar métricas
-        </button>
+        <div className="mt-3 flex gap-2">
+          <button
+            onClick={save}
+            disabled={!text.trim() || !metrics.impressions.trim()}
+            className="rounded-md bg-[var(--color-accent)] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+          >
+            {editingId ? "Salvar alterações" : "Salvar métricas"}
+          </button>
+          {editingId && (
+            <button
+              onClick={resetForm}
+              className="rounded-md border border-[var(--color-border)] px-4 py-2 text-sm text-[var(--color-text-dim)]"
+            >
+              Cancelar edição
+            </button>
+          )}
+        </div>
       </section>
 
       {stats && (
@@ -621,12 +795,20 @@ export function Analytics() {
                       </div>
                     )}
                   </div>
-                  <button
-                    onClick={() => remove(p.id)}
-                    className="shrink-0 rounded-md border border-[var(--color-border)] px-2 py-1 text-xs text-[var(--color-danger)] hover:bg-[var(--color-danger)]/10"
-                  >
-                    Remover
-                  </button>
+                  <div className="flex shrink-0 flex-col gap-1">
+                    <button
+                      onClick={() => startEdit(p)}
+                      className="rounded-md border border-[var(--color-border)] px-2 py-1 text-xs hover:bg-[var(--color-surface-2)]"
+                    >
+                      Editar
+                    </button>
+                    <button
+                      onClick={() => remove(p.id)}
+                      className="rounded-md border border-[var(--color-border)] px-2 py-1 text-xs text-[var(--color-danger)] hover:bg-[var(--color-danger)]/10"
+                    >
+                      Remover
+                    </button>
+                  </div>
                 </div>
               </li>
             ))}

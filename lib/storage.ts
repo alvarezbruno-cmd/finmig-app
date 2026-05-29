@@ -62,6 +62,7 @@ interface AnalyticsMeta {
   topIndustry?: string;
   demographics?: PublishedPost["demographics"];
   territory?: string;
+  postedTime?: string;
 }
 interface AnalyticsRow {
   id: string;
@@ -133,6 +134,7 @@ export async function hydrate(): Promise<void> {
       topIndustry: meta.topIndustry,
       demographics: meta.demographics,
       territory: meta.territory,
+      postedTime: meta.postedTime,
       createdAt: new Date(x.created_at).getTime(),
     };
   });
@@ -356,6 +358,25 @@ export function engagementRate(p: PublishedPost): number {
   return (reactions + comments + shares + saves) / impressions;
 }
 
+function analyticsRow(p: PublishedPost) {
+  return {
+    text: p.text,
+    theme: p.theme,
+    format: p.format,
+    posted_at: p.postedAt,
+    metrics: p.metrics,
+    meta: {
+      link: p.link,
+      topRole: p.topRole,
+      topLocation: p.topLocation,
+      topIndustry: p.topIndustry,
+      demographics: p.demographics,
+      territory: p.territory,
+      postedTime: p.postedTime,
+    },
+  };
+}
+
 export const analytics = {
   list(): PublishedPost[] {
     return [...cache.analytics].sort((a, b) => b.createdAt - a.createdAt);
@@ -364,25 +385,16 @@ export const analytics = {
     const item: PublishedPost = { ...entry, id: crypto.randomUUID(), createdAt: Date.now() };
     cache.analytics = [item, ...cache.analytics];
     persist(
-      supabase.from("analytics").insert({
-        id: item.id,
-        text: item.text,
-        theme: item.theme,
-        format: item.format,
-        posted_at: item.postedAt,
-        metrics: item.metrics,
-        meta: {
-          link: item.link,
-          topRole: item.topRole,
-          topLocation: item.topLocation,
-          topIndustry: item.topIndustry,
-          demographics: item.demographics,
-          territory: item.territory,
-        },
-        created_at: iso(item.createdAt),
-      }),
+      supabase
+        .from("analytics")
+        .insert({ id: item.id, created_at: iso(item.createdAt), ...analyticsRow(item) }),
     );
     return item;
+  },
+  update(id: string, patch: Partial<Omit<PublishedPost, "id" | "createdAt">>): void {
+    cache.analytics = cache.analytics.map((p) => (p.id === id ? { ...p, ...patch } : p));
+    const p = cache.analytics.find((x) => x.id === id);
+    if (p) persist(supabase.from("analytics").update(analyticsRow(p)).eq("id", id));
   },
   remove(id: string): void {
     cache.analytics = cache.analytics.filter((p) => p.id !== id);
