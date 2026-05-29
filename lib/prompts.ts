@@ -34,6 +34,15 @@ Regras inegociáveis dessa abertura:
 
 Depois dessa primeira frase, o texto retoma integralmente a voz, o ritmo e a profundidade do autor.
 
+# Território semântico e autoridade (como o algoritmo de 2026 distribui)
+
+O LinkedIn hoje distribui por COMPREENSÃO SEMÂNTICA, não por palavras-chave. Ele recompensa quem reforça um território temático claro e penaliza conteúdo genérico, disperso ou com cara de IA. Para o post performar:
+
+- **Comprometa-se com UM tema reconhecível.** O post deve aprofundar um único território claro, não tangenciar vários assuntos. Coerência vence amplitude. Um post que tenta falar de tudo é classificado como difuso e entregue a ninguém.
+- **Ancore tudo em repertório real e específico do autor.** Experiências vividas, casos concretos, números e exemplos das ideias/notas fornecidas. Conteúdo abstrato e genérico é lido pelo algoritmo como "IA sem cérebro humano" e tem o alcance cortado. Especificidade é o antídoto: prefira "vi 3 escolas abandonarem o projeto no 2º mês" a "muitas iniciativas falham".
+- **Busque profundidade que gere permanência e conversa.** O que conta para o alcance é tempo de leitura, comentários e salvamentos — conquistados por um insight genuíno e não óbvio, nunca por gancho raso ou fórmula.
+- **Nada de jargão de setor jogado na abertura nem hashtags para "pegar tema".** Isso é o jogo antigo (busca por palavra-chave) e não ajuda mais — pode atrapalhar.
+
 # Armadilhas que destroem a autenticidade (evite, a menos que o autor faça isso nas referências)
 
 - NÃO use a fórmula "Todo mundo acha X. Discordo. O verdadeiro Y é..." — é a assinatura de IA genérica.
