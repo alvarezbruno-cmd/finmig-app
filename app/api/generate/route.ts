@@ -39,7 +39,13 @@ export async function POST(req: Request) {
       messages: [
         {
           role: "user",
-          content: buildUserMessage(body.topic, ideas, body.extraNotes, body.performance),
+          content: buildUserMessage(
+            body.topic,
+            ideas,
+            body.extraNotes,
+            body.performance,
+            body.territory,
+          ),
         },
       ],
     });

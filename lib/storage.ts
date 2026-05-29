@@ -10,6 +10,7 @@ import type {
   ReferencePost,
   SelectedIdea,
   SourceText,
+  Territory,
 } from "./types";
 
 // In-memory cache, hydrated once after login. Components read it synchronously;
@@ -19,6 +20,7 @@ const cache = {
   sources: [] as SourceText[],
   history: [] as HistoryEntry[],
   analytics: [] as PublishedPost[],
+  territories: [] as Territory[],
 };
 
 function persist(p: PromiseLike<{ error: unknown }>): void {
@@ -59,6 +61,7 @@ interface AnalyticsMeta {
   topLocation?: string;
   topIndustry?: string;
   demographics?: PublishedPost["demographics"];
+  territory?: string;
 }
 interface AnalyticsRow {
   id: string;
@@ -70,14 +73,28 @@ interface AnalyticsRow {
   meta: AnalyticsMeta | null;
   created_at: string;
 }
+interface TerritoryRow {
+  id: string;
+  name: string;
+  description: string | null;
+  created_at: string;
+}
 
 export async function hydrate(): Promise<void> {
-  const [r, s, h, a] = await Promise.all([
+  const [r, s, h, a, t] = await Promise.all([
     supabase.from("style_references").select("*").order("created_at", { ascending: false }),
     supabase.from("sources").select("*").order("created_at", { ascending: false }),
     supabase.from("history").select("*").order("created_at", { ascending: false }),
     supabase.from("analytics").select("*").order("created_at", { ascending: false }),
+    supabase.from("territories").select("*").order("created_at", { ascending: true }),
   ]);
+
+  cache.territories = ((t.data ?? []) as TerritoryRow[]).map((x) => ({
+    id: x.id,
+    name: x.name,
+    description: x.description ?? "",
+    createdAt: new Date(x.created_at).getTime(),
+  }));
 
   cache.refs = ((r.data ?? []) as RefRow[]).map((x) => ({
     id: x.id,
@@ -115,6 +132,7 @@ export async function hydrate(): Promise<void> {
       topLocation: meta.topLocation,
       topIndustry: meta.topIndustry,
       demographics: meta.demographics,
+      territory: meta.territory,
       createdAt: new Date(x.created_at).getTime(),
     };
   });
@@ -164,6 +182,34 @@ export const references = {
       added++;
     }
     return added;
+  },
+};
+
+export const territories = {
+  list(): Territory[] {
+    return [...cache.territories].sort((a, b) => a.createdAt - b.createdAt);
+  },
+  add(name: string, description = ""): Territory {
+    const item: Territory = {
+      id: crypto.randomUUID(),
+      name: name.trim(),
+      description: description.trim(),
+      createdAt: Date.now(),
+    };
+    cache.territories = [...cache.territories, item];
+    persist(
+      supabase.from("territories").insert({
+        id: item.id,
+        name: item.name,
+        description: item.description,
+        created_at: iso(item.createdAt),
+      }),
+    );
+    return item;
+  },
+  remove(id: string): void {
+    cache.territories = cache.territories.filter((t) => t.id !== id);
+    persist(supabase.from("territories").delete().eq("id", id));
   },
 };
 
@@ -331,6 +377,7 @@ export const analytics = {
           topLocation: item.topLocation,
           topIndustry: item.topIndustry,
           demographics: item.demographics,
+          territory: item.territory,
         },
         created_at: iso(item.createdAt),
       }),

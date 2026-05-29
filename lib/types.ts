@@ -5,6 +5,13 @@ export interface ReferencePost {
   createdAt: number;
 }
 
+export interface Territory {
+  id: string;
+  name: string;
+  description: string;
+  createdAt: number;
+}
+
 export interface Idea {
   id: string;
   text: string;
@@ -46,6 +53,7 @@ export interface GenerateRequest {
   extraNotes?: string;
   references: string[];
   performance?: string;
+  territory?: string;
 }
 
 export interface PostMetrics {
@@ -80,6 +88,7 @@ export interface PublishedPost {
   topLocation?: string;
   topIndustry?: string;
   demographics?: Demographics;
+  territory?: string;
   createdAt: number;
 }
 

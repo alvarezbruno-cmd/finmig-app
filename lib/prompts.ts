@@ -150,9 +150,16 @@ export function buildUserMessage(
   ideas: SelectedIdea[],
   extraNotes?: string,
   performance?: string,
+  territory?: string,
 ): string {
   const parts: string[] = [];
   parts.push(`# Tópico do post\n\n${topic.trim()}`);
+
+  if (territory?.trim()) {
+    parts.push(
+      `# Território semântico deste post\n\nEste post pertence ao território: ${territory.trim()}\n\nMantenha o post 100% dentro deste território. Reforce-o, aprofunde-o, não tangencie outros assuntos. A coerência temática é o que constrói autoridade e alcance no algoritmo atual.`,
+    );
+  }
 
   if (performance?.trim()) {
     parts.push(

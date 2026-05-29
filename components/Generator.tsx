@@ -2,14 +2,16 @@
 
 import { useEffect, useState } from "react";
 import { PostCard } from "./PostCard";
-import { analytics, history, references, sources } from "@/lib/storage";
-import type { ReferencePost, SourceText, Variation } from "@/lib/types";
+import { analytics, history, references, sources, territories } from "@/lib/storage";
+import type { ReferencePost, SourceText, Territory, Variation } from "@/lib/types";
 
 export function Generator() {
   const [topic, setTopic] = useState("");
   const [extraNotes, setExtraNotes] = useState("");
   const [refs, setRefs] = useState<ReferencePost[]>([]);
   const [texts, setTexts] = useState<SourceText[]>([]);
+  const [terrs, setTerrs] = useState<Territory[]>([]);
+  const [territoryId, setTerritoryId] = useState("");
   const [selectedIdeaIds, setSelectedIdeaIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [variations, setVariations] = useState<Variation[] | null>(null);
@@ -19,6 +21,7 @@ export function Generator() {
   useEffect(() => {
     setRefs(references.list());
     setTexts(sources.list());
+    setTerrs(territories.list());
     setLearnedFrom(analytics.list().filter((p) => p.metrics.impressions > 0).length);
   }, []);
 
@@ -42,6 +45,7 @@ export function Generator() {
     setVariations(null);
     try {
       const ideas = sources.getSelectedIdeas(selectedIdeaIds);
+      const terr = terrs.find((t) => t.id === territoryId);
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -51,6 +55,9 @@ export function Generator() {
           extraNotes,
           references: references.list().map((r) => r.content),
           performance: analytics.performanceProfile(),
+          territory: terr
+            ? `${terr.name}${terr.description ? ` — ${terr.description}` : ""}`
+            : undefined,
         }),
       });
 
@@ -98,6 +105,37 @@ export function Generator() {
             placeholder="Ex: o impacto da IA no desenvolvimento do julgamento em adolescentes"
             className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 outline-none focus:border-[var(--color-accent)]"
           />
+        </label>
+
+        <label className="block">
+          <div className="mb-1 text-sm text-[var(--color-text-dim)]">
+            Território{" "}
+            <span className="text-xs">
+              (mantém o post coeso com um dos seus temas centrais)
+            </span>
+          </div>
+          {terrs.length === 0 ? (
+            <div className="rounded-md border border-dashed border-[var(--color-border)] px-3 py-2 text-xs text-[var(--color-text-dim)]">
+              Defina seus territórios temáticos em{" "}
+              <a href="/analytics" className="text-[var(--color-accent)] underline">
+                Analytics
+              </a>{" "}
+              para ancorar a geração.
+            </div>
+          ) : (
+            <select
+              value={territoryId}
+              onChange={(e) => setTerritoryId(e.target.value)}
+              className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm outline-none focus:border-[var(--color-accent)]"
+            >
+              <option value="">Sem território específico</option>
+              {terrs.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          )}
         </label>
 
         <div>

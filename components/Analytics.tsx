@@ -1,9 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { analytics, engagementRate, history } from "@/lib/storage";
+import { analytics, engagementRate, history, territories } from "@/lib/storage";
 import { parseLinkedInXlsx } from "@/lib/linkedinImport";
-import type { Demographics, HistoryEntry, PostFormat, PublishedPost } from "@/lib/types";
+import type {
+  Demographics,
+  HistoryEntry,
+  PostFormat,
+  PublishedPost,
+  Territory,
+} from "@/lib/types";
 
 const FORMATS: PostFormat[] = ["texto", "link", "imagem", "carrossel"];
 const formatLabel: Record<PostFormat, string> = {
@@ -75,10 +81,29 @@ export function Analytics() {
   const [audience, setAudience] = useState({ ...emptyAudience });
   const [demographics, setDemographics] = useState<Demographics | null>(null);
   const [importMsg, setImportMsg] = useState<string | null>(null);
+  const [territory, setTerritory] = useState("");
+  const [terrs, setTerrs] = useState<Territory[]>([]);
+  const [newTerrName, setNewTerrName] = useState("");
+  const [newTerrDesc, setNewTerrDesc] = useState("");
 
   function refresh() {
     setItems(analytics.list());
     setHist(history.list());
+    setTerrs(territories.list());
+  }
+
+  function addTerritory() {
+    if (!newTerrName.trim()) return;
+    territories.add(newTerrName, newTerrDesc);
+    setNewTerrName("");
+    setNewTerrDesc("");
+    refresh();
+  }
+
+  function removeTerritory(id: string) {
+    if (!confirm("Remover este território?")) return;
+    territories.remove(id);
+    refresh();
   }
   useEffect(() => {
     refresh();
@@ -139,6 +164,7 @@ export function Analytics() {
       topLocation: audience.topLocation || undefined,
       topIndustry: audience.topIndustry || undefined,
       demographics: demographics ?? undefined,
+      territory: territory || undefined,
     });
     setText("");
     setTheme("");
@@ -147,6 +173,7 @@ export function Analytics() {
     setMetrics({ ...emptyMetrics });
     setAudience({ ...emptyAudience });
     setDemographics(null);
+    setTerritory("");
     setImportMsg(null);
     refresh();
   }
@@ -223,6 +250,23 @@ export function Analytics() {
       });
   }, [items]);
 
+  const territoryStats = useMemo(() => {
+    const valid = items.filter((p) => p.metrics.impressions > 0);
+    if (valid.length === 0) return [];
+    const m = new Map<string, { sum: number; n: number }>();
+    for (const p of valid) {
+      const key = p.territory?.trim() || "(sem território)";
+      const cur = m.get(key) ?? { sum: 0, n: 0 };
+      cur.sum += engagementRate(p);
+      cur.n += 1;
+      m.set(key, cur);
+    }
+    const total = valid.length;
+    return [...m.entries()]
+      .map(([name, v]) => ({ name, avg: v.sum / v.n, n: v.n, share: v.n / total }))
+      .sort((a, b) => b.n - a.n);
+  }, [items]);
+
   const pct = (n: number) => `${(n * 100).toFixed(1)}%`;
   const field =
     "w-full rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm outline-none focus:border-[var(--color-accent)]";
@@ -236,6 +280,89 @@ export function Analytics() {
           funciona — e a aba Gerar passa a priorizar esses padrões ao criar novos posts.
         </p>
       </header>
+
+      <section className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+        <div className="mb-1 text-sm font-medium">Territórios temáticos</div>
+        <p className="mb-3 text-xs text-[var(--color-text-dim)]">
+          Defina 2–3 temas centrais. O algoritmo recompensa coerência: posts ancorados num
+          território constroem autoridade. Use-os na aba Gerar e acompanhe a concentração
+          abaixo.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <input
+            value={newTerrName}
+            onChange={(e) => setNewTerrName(e.target.value)}
+            placeholder="Nome (ex: IA na educação)"
+            className={`${field} sm:max-w-xs`}
+          />
+          <input
+            value={newTerrDesc}
+            onChange={(e) => setNewTerrDesc(e.target.value)}
+            placeholder="Descrição curta (opcional)"
+            className={`${field} flex-1`}
+          />
+          <button
+            onClick={addTerritory}
+            disabled={!newTerrName.trim()}
+            className="rounded-md bg-[var(--color-accent)] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+          >
+            Adicionar
+          </button>
+        </div>
+        {terrs.length > 0 && (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {terrs.map((t) => (
+              <span
+                key={t.id}
+                className="flex items-center gap-2 rounded-full border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-1 text-xs"
+                title={t.description}
+              >
+                {t.name}
+                <button
+                  onClick={() => removeTerritory(t.id)}
+                  className="text-[var(--color-text-dim)] hover:text-[var(--color-danger)]"
+                >
+                  ✕
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {territoryStats.length > 0 && (
+        <section className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+          <div className="mb-3 text-sm font-medium">Desempenho por território</div>
+          <div className="space-y-3">
+            {territoryStats.map((t) => {
+              const maxAvg = territoryStats[0]
+                ? Math.max(...territoryStats.map((x) => x.avg))
+                : 1;
+              return (
+                <div key={t.name} className="space-y-1">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-medium">{t.name}</span>
+                    <span className="text-[var(--color-text-dim)]">
+                      {t.n} post{t.n === 1 ? "" : "s"} ({(t.share * 100).toFixed(0)}%) ·
+                      engajamento {pct(t.avg)}
+                    </span>
+                  </div>
+                  <div className="h-3 overflow-hidden rounded bg-[var(--color-surface-2)]">
+                    <div
+                      className="h-3 rounded bg-[var(--color-accent)]"
+                      style={{ width: `${Math.max(2, (maxAvg > 0 ? t.avg / maxAvg : 0) * 100)}%` }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <p className="mt-3 text-xs text-[var(--color-text-dim)]">
+            Concentre seus posts em poucos territórios. Dispersão derruba o alcance no
+            algoritmo atual.
+          </p>
+        </section>
+      )}
 
       <section className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
@@ -317,6 +444,21 @@ export function Analytics() {
             className={field}
           />
         </div>
+
+        {terrs.length > 0 && (
+          <select
+            value={territory}
+            onChange={(e) => setTerritory(e.target.value)}
+            className={`${field} mt-3`}
+          >
+            <option value="">Território (opcional)</option>
+            {terrs.map((t) => (
+              <option key={t.id} value={t.name}>
+                {t.name}
+              </option>
+            ))}
+          </select>
+        )}
 
         <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
           {metricFields.map((m) => (
@@ -450,6 +592,11 @@ export function Analytics() {
                       <span className="rounded bg-[var(--color-surface-2)] px-1.5 py-0.5">
                         {formatLabel[p.format]}
                       </span>
+                      {p.territory && (
+                        <span className="rounded bg-[var(--color-accent)]/10 px-1.5 py-0.5 text-[var(--color-accent)]">
+                          {p.territory}
+                        </span>
+                      )}
                       {p.theme && <span>{p.theme}</span>}
                       {p.postedAt && <span>· {p.postedAt}</span>}
                       <span className="text-[var(--color-ok)]">
