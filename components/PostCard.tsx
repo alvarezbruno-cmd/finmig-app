@@ -7,9 +7,10 @@ import type { Variation } from "@/lib/types";
 interface Props {
   variation: Variation;
   onChange?: (next: Variation) => void;
+  onSchedule?: (post: string) => void;
 }
 
-export function PostCard({ variation, onChange }: Props) {
+export function PostCard({ variation, onChange, onSchedule }: Props) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(variation.post);
   const [selection, setSelection] = useState<{ start: number; end: number } | null>(null);
@@ -196,13 +197,15 @@ export function PostCard({ variation, onChange }: Props) {
           >
             Copiar + abrir LinkedIn
           </button>
-          <button
-            onClick={() => copyAndOpen("https://publish.buffer.com/")}
-            className="rounded-md border border-[var(--color-border)] px-3 py-1.5 text-sm hover:bg-[var(--color-surface-2)]"
-            title="Copia o post e abre o Buffer — escolha o canal LinkedIn e cole"
-          >
-            Copiar + abrir Buffer
-          </button>
+          {onSchedule && (
+            <button
+              onClick={() => onSchedule(post)}
+              className="rounded-md border border-[var(--color-border)] px-3 py-1.5 text-sm hover:bg-[var(--color-surface-2)]"
+              title="Adiciona à Agenda para você definir data e hora"
+            >
+              Agendar
+            </button>
+          )}
           <button
             onClick={() => {
               setDraft(variation.post);

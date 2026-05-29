@@ -9,6 +9,7 @@ import type {
   PostMetrics,
   PublishedPost,
   ReferencePost,
+  ScheduledPost,
   SelectedIdea,
   SourceText,
   Territory,
@@ -24,6 +25,7 @@ const cache = {
   history: [] as HistoryEntry[],
   analytics: [] as PublishedPost[],
   territories: [] as Territory[],
+  scheduled: [] as ScheduledPost[],
   objectives: { ...EMPTY_OBJECTIVES } as Objectives,
 };
 
@@ -85,18 +87,37 @@ interface TerritoryRow {
   created_at: string;
 }
 
+interface ScheduledRow {
+  id: string;
+  text: string;
+  scheduled_at: string;
+  territory: string | null;
+  status: string;
+  created_at: string;
+}
+
 export async function hydrate(): Promise<void> {
-  const [r, s, h, a, t, st] = await Promise.all([
+  const [r, s, h, a, t, st, sc] = await Promise.all([
     supabase.from("style_references").select("*").order("created_at", { ascending: false }),
     supabase.from("sources").select("*").order("created_at", { ascending: false }),
     supabase.from("history").select("*").order("created_at", { ascending: false }),
     supabase.from("analytics").select("*").order("created_at", { ascending: false }),
     supabase.from("territories").select("*").order("created_at", { ascending: true }),
     supabase.from("settings").select("data").maybeSingle(),
+    supabase.from("scheduled_posts").select("*").order("scheduled_at", { ascending: true }),
   ]);
 
   const settingsData = (st.data?.data ?? {}) as { objectives?: Objectives };
   cache.objectives = { ...EMPTY_OBJECTIVES, ...(settingsData.objectives ?? {}) };
+
+  cache.scheduled = ((sc.data ?? []) as ScheduledRow[]).map((x) => ({
+    id: x.id,
+    text: x.text,
+    scheduledAt: new Date(x.scheduled_at).getTime(),
+    territory: x.territory ?? undefined,
+    status: x.status === "posted" ? "posted" : "pending",
+    createdAt: new Date(x.created_at).getTime(),
+  }));
 
   cache.territories = ((t.data ?? []) as TerritoryRow[]).map((x) => ({
     id: x.id,
@@ -210,6 +231,54 @@ export const objectives = {
         { user_id: userId, data: { objectives: cache.objectives }, updated_at: new Date().toISOString() },
         { onConflict: "user_id" },
       );
+  },
+};
+
+export const schedule = {
+  list(): ScheduledPost[] {
+    return [...cache.scheduled].sort((a, b) => a.scheduledAt - b.scheduledAt);
+  },
+  add(entry: { text: string; scheduledAt: number; territory?: string }): ScheduledPost {
+    const item: ScheduledPost = {
+      id: crypto.randomUUID(),
+      text: entry.text.trim(),
+      scheduledAt: entry.scheduledAt,
+      territory: entry.territory || undefined,
+      status: "pending",
+      createdAt: Date.now(),
+    };
+    cache.scheduled = [...cache.scheduled, item];
+    persist(
+      supabase.from("scheduled_posts").insert({
+        id: item.id,
+        text: item.text,
+        scheduled_at: iso(item.scheduledAt),
+        territory: item.territory ?? "",
+        status: item.status,
+        created_at: iso(item.createdAt),
+      }),
+    );
+    return item;
+  },
+  update(id: string, patch: Partial<Pick<ScheduledPost, "text" | "scheduledAt" | "territory" | "status">>): void {
+    cache.scheduled = cache.scheduled.map((p) => (p.id === id ? { ...p, ...patch } : p));
+    const p = cache.scheduled.find((x) => x.id === id);
+    if (!p) return;
+    persist(
+      supabase
+        .from("scheduled_posts")
+        .update({
+          text: p.text,
+          scheduled_at: iso(p.scheduledAt),
+          territory: p.territory ?? "",
+          status: p.status,
+        })
+        .eq("id", id),
+    );
+  },
+  remove(id: string): void {
+    cache.scheduled = cache.scheduled.filter((p) => p.id !== id);
+    persist(supabase.from("scheduled_posts").delete().eq("id", id));
   },
 };
 

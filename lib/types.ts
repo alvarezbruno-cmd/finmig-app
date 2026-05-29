@@ -63,6 +63,15 @@ export interface Objectives {
   notes: string;
 }
 
+export interface ScheduledPost {
+  id: string;
+  text: string;
+  scheduledAt: number;
+  territory?: string;
+  status: "pending" | "posted";
+  createdAt: number;
+}
+
 export interface PostMetrics {
   impressions: number;
   reached: number;

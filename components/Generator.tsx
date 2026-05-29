@@ -2,7 +2,15 @@
 
 import { useEffect, useState } from "react";
 import { PostCard } from "./PostCard";
-import { analytics, history, objectives, references, sources, territories } from "@/lib/storage";
+import {
+  analytics,
+  history,
+  objectives,
+  references,
+  schedule,
+  sources,
+  territories,
+} from "@/lib/storage";
 import type { ReferencePost, SourceText, Territory, Variation } from "@/lib/types";
 
 function objectivesString(): string {
@@ -102,6 +110,15 @@ export function Generator() {
       copy[idx] = next;
       return copy;
     });
+  }
+
+  function scheduleVariation(post: string) {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    d.setHours(9, 0, 0, 0);
+    const terr = terrs.find((t) => t.id === territoryId);
+    schedule.add({ text: post, scheduledAt: d.getTime(), territory: terr?.name });
+    alert("Adicionado à Agenda (amanhã 9h por padrão). Ajuste a data/hora na aba Agenda.");
   }
 
   const totalIdeas = texts.reduce((n, t) => n + t.ideas.length, 0);
@@ -283,6 +300,7 @@ export function Generator() {
               key={i}
               variation={v}
               onChange={(next) => updateVariation(i, next)}
+              onSchedule={scheduleVariation}
             />
           ))}
         </section>
