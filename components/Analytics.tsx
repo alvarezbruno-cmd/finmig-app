@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { analytics, engagementRate, history, territories } from "@/lib/storage";
 import { parseLinkedInXlsx } from "@/lib/linkedinImport";
+import { buildInsights, buildStrategyContext, computeStats } from "@/lib/strategy";
 import type {
   Demographics,
   HistoryEntry,
@@ -87,6 +88,30 @@ export function Analytics() {
   const [terrs, setTerrs] = useState<Territory[]>([]);
   const [newTerrName, setNewTerrName] = useState("");
   const [newTerrDesc, setNewTerrDesc] = useState("");
+  const [briefing, setBriefing] = useState<string | null>(null);
+  const [briefingLoading, setBriefingLoading] = useState(false);
+
+  const insights = useMemo(() => buildInsights(computeStats(items)), [items]);
+
+  async function generateBriefing() {
+    setBriefingLoading(true);
+    setBriefing(null);
+    try {
+      const context = buildStrategyContext(computeStats(items), territories.list());
+      const res = await fetch("/api/strategy", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ context }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Erro ao gerar briefing");
+      setBriefing(data.briefing);
+    } catch (err) {
+      setBriefing(err instanceof Error ? `Erro: ${err.message}` : "Erro desconhecido");
+    } finally {
+      setBriefingLoading(false);
+    }
+  }
 
   function refresh() {
     setItems(analytics.list());
@@ -433,6 +458,42 @@ export function Analytics() {
           )}
         </section>
       )}
+
+      <section className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <div className="text-sm font-medium">Estratégia</div>
+          <button
+            onClick={generateBriefing}
+            disabled={briefingLoading || items.length < 2}
+            className="rounded-md border border-[var(--color-accent)] px-3 py-1.5 text-sm font-medium text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 disabled:opacity-50"
+          >
+            {briefingLoading ? "Analisando…" : "Gerar briefing por IA (~US$ 0,03)"}
+          </button>
+        </div>
+
+        <ul className="space-y-2">
+          {insights.map((ins, i) => (
+            <li
+              key={i}
+              className="rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] p-3"
+            >
+              <div className="text-sm font-medium">{ins.title}</div>
+              <div className="mt-0.5 text-xs text-[var(--color-text-dim)]">{ins.detail}</div>
+            </li>
+          ))}
+        </ul>
+
+        {briefing && (
+          <div className="mt-4 rounded-md border border-[var(--color-accent)]/40 bg-[var(--color-surface-2)] p-4">
+            <div className="mb-2 text-xs font-medium uppercase tracking-wider text-[var(--color-accent)]">
+              Briefing estratégico (IA)
+            </div>
+            <pre className="whitespace-pre-wrap break-words font-sans text-sm leading-relaxed">
+              {briefing}
+            </pre>
+          </div>
+        )}
+      </section>
 
       <section className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
         <div className="mb-1 text-sm font-medium">Territórios temáticos</div>
