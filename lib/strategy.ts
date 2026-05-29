@@ -234,9 +234,14 @@ export function buildInsights(stats: StrategyStats | null): Insight[] {
 export function buildStrategyContext(
   stats: StrategyStats | null,
   territories: Territory[],
+  objectives?: string,
 ): string {
   if (!stats) return "";
   const lines: string[] = [];
+  if (objectives?.trim()) {
+    lines.push(`OBJETIVOS DO CRIADOR (priorize recomendações que ajudem a alcançá-los): ${objectives.trim()}`);
+    lines.push("");
+  }
   lines.push(`Posts medidos: ${stats.n}. Engajamento médio: ${pct(stats.avgEr)}.`);
   lines.push(
     `Por formato: ${stats.byFormat.map((f) => `${f.key} ${pct(f.avg)} (${f.n})`).join("; ")}.`,

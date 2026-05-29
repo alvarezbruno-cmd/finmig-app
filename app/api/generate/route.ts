@@ -45,6 +45,7 @@ export async function POST(req: Request) {
             body.extraNotes,
             body.performance,
             body.territory,
+            body.objectives,
           ),
         },
       ],

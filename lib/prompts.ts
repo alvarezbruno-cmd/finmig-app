@@ -151,9 +151,16 @@ export function buildUserMessage(
   extraNotes?: string,
   performance?: string,
   territory?: string,
+  objectives?: string,
 ): string {
   const parts: string[] = [];
   parts.push(`# Tópico do post\n\n${topic.trim()}`);
+
+  if (objectives?.trim()) {
+    parts.push(
+      `# Objetivo de audiência (mire em atingir/ampliar este público)\n\n${objectives.trim()}\n\nSem perder a voz do autor, o território nem a verdade, ENQUADRE o post para atrair esse público: aborde o tema pela ótica das preocupações, do vocabulário e do nível de decisão dele (ex: se o alvo é gestão/diretoria, fale de estratégia, gestão e resultados institucionais, não só da prática de sala de aula). Para ampliar a geografia, evite ancorar o texto a uma única cidade/região e prefira enquadramento amplo/nacional. Isso é direção de ângulo — não autoriza generalizar, inventar ou abandonar o território.`,
+    );
+  }
 
   if (territory?.trim()) {
     parts.push(

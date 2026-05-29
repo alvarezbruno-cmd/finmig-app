@@ -54,6 +54,13 @@ export interface GenerateRequest {
   references: string[];
   performance?: string;
   territory?: string;
+  objectives?: string;
+}
+
+export interface Objectives {
+  audienceGoal: string;
+  regionGoal: string;
+  notes: string;
 }
 
 export interface PostMetrics {

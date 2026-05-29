@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { analytics, engagementRate, history, territories } from "@/lib/storage";
+import { analytics, engagementRate, history, objectives, territories } from "@/lib/storage";
 import { parseLinkedInXlsx } from "@/lib/linkedinImport";
 import { buildInsights, buildStrategyContext, computeStats } from "@/lib/strategy";
 import type {
@@ -90,14 +90,36 @@ export function Analytics() {
   const [newTerrDesc, setNewTerrDesc] = useState("");
   const [briefing, setBriefing] = useState<string | null>(null);
   const [briefingLoading, setBriefingLoading] = useState(false);
+  const [obj, setObj] = useState(objectives.get());
+  const [objSaved, setObjSaved] = useState(false);
 
   const insights = useMemo(() => buildInsights(computeStats(items)), [items]);
+
+  function objectivesString(): string {
+    return [
+      obj.audienceGoal && `Público-alvo: ${obj.audienceGoal}`,
+      obj.regionGoal && `Geografia: ${obj.regionGoal}`,
+      obj.notes && `Outros objetivos: ${obj.notes}`,
+    ]
+      .filter(Boolean)
+      .join(". ");
+  }
+
+  async function saveObjectives() {
+    await objectives.save(obj);
+    setObjSaved(true);
+    setTimeout(() => setObjSaved(false), 1500);
+  }
 
   async function generateBriefing() {
     setBriefingLoading(true);
     setBriefing(null);
     try {
-      const context = buildStrategyContext(computeStats(items), territories.list());
+      const context = buildStrategyContext(
+        computeStats(items),
+        territories.list(),
+        objectivesString(),
+      );
       const res = await fetch("/api/strategy", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -418,6 +440,54 @@ export function Analytics() {
           funciona — e a aba Gerar passa a priorizar esses padrões ao criar novos posts.
         </p>
       </header>
+
+      <section className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+        <div className="mb-1 text-sm font-medium">Objetivos de audiência</div>
+        <p className="mb-3 text-xs text-[var(--color-text-dim)]">
+          Defina quem você quer alcançar. A geração passa a enquadrar os posts para atrair
+          esse público, e o briefing de IA recomenda como fechar o gap. (O conteúdo inclina
+          o público; interagir com esse público é a outra metade.)
+        </p>
+        <div className="space-y-2">
+          <label className="block">
+            <div className="mb-1 text-xs text-[var(--color-text-dim)]">
+              Senioridade / cargos-alvo
+            </div>
+            <input
+              value={obj.audienceGoal}
+              onChange={(e) => setObj({ ...obj, audienceGoal: e.target.value })}
+              placeholder="Ex: diretores, coordenadores e gestores escolares (menos foco em professores de sala)"
+              className={field}
+            />
+          </label>
+          <label className="block">
+            <div className="mb-1 text-xs text-[var(--color-text-dim)]">Geografia-alvo</div>
+            <input
+              value={obj.regionGoal}
+              onChange={(e) => setObj({ ...obj, regionGoal: e.target.value })}
+              placeholder="Ex: ampliar além de São Paulo — Sul, Nordeste e outras capitais"
+              className={field}
+            />
+          </label>
+          <label className="block">
+            <div className="mb-1 text-xs text-[var(--color-text-dim)]">
+              Outros objetivos (opcional)
+            </div>
+            <input
+              value={obj.notes}
+              onChange={(e) => setObj({ ...obj, notes: e.target.value })}
+              placeholder="Ex: gerar conversas com tomadores de decisão de redes de ensino"
+              className={field}
+            />
+          </label>
+        </div>
+        <button
+          onClick={saveObjectives}
+          className="mt-3 rounded-md bg-[var(--color-accent)] px-4 py-2 text-sm font-medium text-white"
+        >
+          {objSaved ? "Salvo ✓" : "Salvar objetivos"}
+        </button>
+      </section>
 
       {postingAdvice && (
         <section className="rounded-xl border border-[var(--color-accent)]/30 bg-[var(--color-surface-2)] p-4">

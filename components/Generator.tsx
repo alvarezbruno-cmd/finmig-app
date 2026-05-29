@@ -2,8 +2,19 @@
 
 import { useEffect, useState } from "react";
 import { PostCard } from "./PostCard";
-import { analytics, history, references, sources, territories } from "@/lib/storage";
+import { analytics, history, objectives, references, sources, territories } from "@/lib/storage";
 import type { ReferencePost, SourceText, Territory, Variation } from "@/lib/types";
+
+function objectivesString(): string {
+  const o = objectives.get();
+  return [
+    o.audienceGoal && `Público-alvo: ${o.audienceGoal}`,
+    o.regionGoal && `Geografia: ${o.regionGoal}`,
+    o.notes && `Outros objetivos: ${o.notes}`,
+  ]
+    .filter(Boolean)
+    .join(". ");
+}
 
 export function Generator() {
   const [topic, setTopic] = useState("");
@@ -58,6 +69,7 @@ export function Generator() {
           territory: terr
             ? `${terr.name}${terr.description ? ` — ${terr.description}` : ""}`
             : undefined,
+          objectives: objectivesString() || undefined,
         }),
       });
 

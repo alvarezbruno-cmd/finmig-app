@@ -4,6 +4,7 @@ import { supabase } from "./supabase";
 import type {
   HistoryEntry,
   Idea,
+  Objectives,
   PostFormat,
   PostMetrics,
   PublishedPost,
@@ -13,6 +14,8 @@ import type {
   Territory,
 } from "./types";
 
+const EMPTY_OBJECTIVES: Objectives = { audienceGoal: "", regionGoal: "", notes: "" };
+
 // In-memory cache, hydrated once after login. Components read it synchronously;
 // mutations update the cache optimistically and persist to Supabase in background.
 const cache = {
@@ -21,6 +24,7 @@ const cache = {
   history: [] as HistoryEntry[],
   analytics: [] as PublishedPost[],
   territories: [] as Territory[],
+  objectives: { ...EMPTY_OBJECTIVES } as Objectives,
 };
 
 function persist(p: PromiseLike<{ error: unknown }>): void {
@@ -82,13 +86,17 @@ interface TerritoryRow {
 }
 
 export async function hydrate(): Promise<void> {
-  const [r, s, h, a, t] = await Promise.all([
+  const [r, s, h, a, t, st] = await Promise.all([
     supabase.from("style_references").select("*").order("created_at", { ascending: false }),
     supabase.from("sources").select("*").order("created_at", { ascending: false }),
     supabase.from("history").select("*").order("created_at", { ascending: false }),
     supabase.from("analytics").select("*").order("created_at", { ascending: false }),
     supabase.from("territories").select("*").order("created_at", { ascending: true }),
+    supabase.from("settings").select("data").maybeSingle(),
   ]);
+
+  const settingsData = (st.data?.data ?? {}) as { objectives?: Objectives };
+  cache.objectives = { ...EMPTY_OBJECTIVES, ...(settingsData.objectives ?? {}) };
 
   cache.territories = ((t.data ?? []) as TerritoryRow[]).map((x) => ({
     id: x.id,
@@ -184,6 +192,24 @@ export const references = {
       added++;
     }
     return added;
+  },
+};
+
+export const objectives = {
+  get(): Objectives {
+    return { ...cache.objectives };
+  },
+  async save(obj: Objectives): Promise<void> {
+    cache.objectives = { ...obj };
+    const { data } = await supabase.auth.getUser();
+    const userId = data.user?.id;
+    if (!userId) return;
+    await supabase
+      .from("settings")
+      .upsert(
+        { user_id: userId, data: { objectives: cache.objectives }, updated_at: new Date().toISOString() },
+        { onConflict: "user_id" },
+      );
   },
 };
 
