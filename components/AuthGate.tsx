@@ -2,10 +2,12 @@
 
 import type { Session } from "@supabase/supabase-js";
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { isConfigured, supabase } from "@/lib/supabase";
 import { hasLegacyData, hydrate, migrateFromLocalStorage } from "@/lib/storage";
 
 export function AuthGate({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
   const [authReady, setAuthReady] = useState(false);
   const [session, setSession] = useState<Session | null>(null);
   const [hydrated, setHydrated] = useState(false);
@@ -79,6 +81,11 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
 
   const centerBox =
     "mx-auto mt-24 max-w-sm rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6 text-center";
+
+  // Slideshow works standalone — no Supabase auth needed
+  if (pathname.startsWith("/slideshow")) {
+    return <>{children}</>;
+  }
 
   if (!isConfigured) {
     return (
