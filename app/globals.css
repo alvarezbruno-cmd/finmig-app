@@ -29,3 +29,29 @@ body {
   background: var(--color-accent);
   color: var(--color-on-accent);
 }
+
+/* Ken Burns effect variants for photo slideshow */
+@keyframes kenburns-zoom-in {
+  from { transform: scale(1) translate(0, 0); }
+  to   { transform: scale(1.15) translate(0, 0); }
+}
+@keyframes kenburns-zoom-out {
+  from { transform: scale(1.15) translate(0, 0); }
+  to   { transform: scale(1) translate(0, 0); }
+}
+@keyframes kenburns-pan-left {
+  from { transform: scale(1.12) translate(2%, 0); }
+  to   { transform: scale(1.12) translate(-2%, 0); }
+}
+@keyframes kenburns-pan-right {
+  from { transform: scale(1.12) translate(-2%, 0); }
+  to   { transform: scale(1.12) translate(2%, 0); }
+}
+@keyframes kenburns-diag-1 {
+  from { transform: scale(1.05) translate(-1.5%, -1%); }
+  to   { transform: scale(1.15) translate(1%, 1.5%); }
+}
+@keyframes kenburns-diag-2 {
+  from { transform: scale(1.12) translate(1%, -1.5%); }
+  to   { transform: scale(1.04) translate(-1.5%, 1%); }
+}

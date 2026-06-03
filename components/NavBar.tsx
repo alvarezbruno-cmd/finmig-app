@@ -11,6 +11,7 @@ const links = [
   { href: "/agenda", label: "Agenda" },
   { href: "/analytics", label: "Analytics" },
   { href: "/history", label: "Histórico" },
+  { href: "/slideshow", label: "Slideshow" },
 ];
 
 export function NavBar() {
