@@ -342,6 +342,7 @@
         <div class="btn-row">
           <button class="btn btn-primary" id="open-all-btn">📂 Abrir todas juntas</button>
           <button class="btn btn-ghost"   id="add-folder-btn">+ Adicionar pasta</button>
+          <button class="btn btn-ghost"   id="import-captions-btn">📥 Importar legendas</button>
         </div>
       </div>
       <div class="sep-text">— ou comece do zero —</div>
@@ -402,6 +403,7 @@
       <button class="btn btn-primary" id="play-btn">▶ Iniciar slideshow</button>
       <button class="btn btn-ghost"   id="shuffle-btn">⇄ Aleatório</button>
       <button class="btn btn-ghost"   id="add-folder-review-btn">+ Adicionar pasta</button>
+      <button class="btn btn-ghost"   id="save-captions-btn">💾 Salvar legendas</button>
       <button class="btn btn-ghost"   id="back-btn">← Início</button>
     </div>
   </div>
@@ -637,6 +639,7 @@ document.getElementById('resume-review-btn').addEventListener('click', () => {
   if (photos.length > 0) { renderReview(); show('review-screen'); }
 });
 document.getElementById('open-all-btn').addEventListener('click', () => openAllFolders());
+document.getElementById('import-captions-btn').addEventListener('click', importCaptions);
 document.getElementById('add-folder-btn').addEventListener('click', () => pickAndAddFolder(true));
 document.getElementById('add-folder-review-btn').addEventListener('click', () => pickAndAddFolder(true));
 
@@ -990,6 +993,7 @@ function escHtml(s) { return s.replace(/&/g,'&amp;').replace(/"/g,'&quot;').repl
 
 document.getElementById('play-btn').addEventListener('click', () => startPlayer(false));
 document.getElementById('shuffle-btn').addEventListener('click', () => startPlayer(true));
+document.getElementById('save-captions-btn').addEventListener('click', downloadCaptions);
 document.getElementById('back-btn').addEventListener('click', () => {
   flushCaptionsToCache();
   updateUploadUI();
@@ -1198,6 +1202,63 @@ document.addEventListener('keydown', e => {
       break;
   }
 });
+
+// ═══════════════════════════════════════════════════════
+//  EXPORT / IMPORT CAPTIONS
+// ═══════════════════════════════════════════════════════
+function downloadCaptions() {
+  flushCaptionsToCache();
+  const sizeCache = loadSizeCache();
+  const fotos = {};
+  photos.forEach(p => {
+    fotos[p.file.name] = {
+      texto: captionToText(p),
+      dados: p.caption || '',
+      tamanho: p.capScale || 1
+    };
+  });
+  const blob = new Blob([JSON.stringify({ exportado: new Date().toLocaleDateString('pt-BR'), fotos }, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `legendas_${new Date().toISOString().split('T')[0]}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(a.href);
+}
+
+function importCaptions() {
+  const inp = document.createElement('input');
+  inp.type = 'file';
+  inp.accept = '.json';
+  inp.onchange = async e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    try {
+      const data = JSON.parse(await file.text());
+      const fotos = data.fotos || data;
+      const captionCache = loadCaptionCache();
+      const sizeCache = loadSizeCache();
+      let count = 0;
+      Object.entries(fotos).forEach(([filename, val]) => {
+        if (typeof val === 'string') {
+          captionCache[filename] = val;
+        } else {
+          if (val.dados) captionCache[filename] = val.dados;
+          else if (val.texto) captionCache[filename] = val.texto;
+          if (val.tamanho) sizeCache[filename] = val.tamanho;
+        }
+        count++;
+      });
+      saveCaptionCache(captionCache);
+      saveSizeCache(sizeCache);
+      alert(`✅ ${count} legendas importadas com sucesso!\n\nAgora abra as pastas normalmente — as legendas vão aparecer sem cobrar o Claude.`);
+    } catch (err) {
+      showUploadError('Erro ao importar: ' + (err.message || err));
+    }
+  };
+  inp.click();
+}
 
 // ═══════════════════════════════════════════════════════
 //  UTILITIES
