@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Alvarez Slideshow</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #111; --surface: #1c1c1e; --border: #2c2c2e;
+      --text: #f0f0f0; --dim: #888; --accent: #4f8ef7;
+      --ok: #34c759; --warn: #ff9f0a;
+    }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+    .screen { display: none; }
+    .screen.active { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 40px 20px; }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 32px; width: 100%; max-width: 480px; }
+    .card h1 { font-size: 1.5rem; font-weight: 700; margin-bottom: 8px; }
+    .card p  { color: var(--dim); font-size: 0.9rem; line-height: 1.5; }
+    input[type="text"], input[type="password"] { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 0.9rem; padding: 10px 14px; margin-top: 16px; outline: none; font-family: monospace; }
+    input[type="text"]:focus, input[type="password"]:focus { border-color: var(--accent); }
+    .btn { display: inline-flex; align-items: center; gap: 8px; padding: 11px 22px; border-radius: 10px; border: none; cursor: pointer; font-size: 0.9rem; font-weight: 600; transition: opacity .15s, transform .1s; }
+    .btn:active { transform: scale(.97); }
+    .btn:disabled { opacity: .4; cursor: default; }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-primary:not(:disabled):hover { opacity: .88; }
+    .btn-ghost { background: var(--border); color: var(--text); }
+    .btn-ghost:not(:disabled):hover { opacity: .78; }
+    .btn-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 20px; }
+    .dropzone { border: 2px dashed var(--border); border-radius: 14px; padding: 60px 20px; text-align: center; cursor: pointer; transition: border-color .2s, background .2s; margin-top: 24px; }
+    .dropzone.over { border-color: var(--accent); background: rgba(79,142,247,.07); }
+    .dropzone .icon { font-size: 3rem; margin-bottom: 12px; }
+    .dropzone h2 { font-size: 1.1rem; margin-bottom: 6px; }
+    .dropzone p { color: var(--dim); font-size: 0.85rem; }
+    .progress-wrap { width: 100%; max-width: 400px; margin-top: 24px; }
+    .progress-bar-bg { background: var(--border); border-radius: 99px; height: 6px; overflow: hidden; }
+    .progress-bar-fill { background: var(--accent); height: 100%; border-radius: 99px; transition: width .4s ease; }
+    .progress-label { color: var(--dim); font-size: 0.85rem; margin-top: 10px; text-align: center; }
+    .stats { color: var(--dim); font-size: 0.85rem; margin-bottom: 16px; }
+    .ok { color: var(--ok); font-weight: 700; }
+    .warn { color: var(--warn); font-weight: 700; }
+    #review-screen { justify-content: flex-start; padding-top: 32px; }
+    .review-header { width: 100%; max-width: 1200px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; }
+    .review-header h1 { font-size: 1.3rem; }
+    .photo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; width: 100%; max-width: 1200px; }
+    .photo-card { display: flex; flex-direction: column; gap: 6px; }
+    .photo-thumb { aspect-ratio: 1; border-radius: 10px; overflow: hidden; background: var(--border); }
+    .photo-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .photo-caption { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 0.75rem; padding: 5px 8px; width: 100%; outline: none; }
+    .photo-caption:focus { border-color: var(--accent); }
+    .photo-caption::placeholder { color: #555; }
+    .pagination { display: flex; align-items: center; gap: 12px; margin-top: 24px; margin-bottom: 40px; }
+    .pagination button { background: var(--border); border: none; color: var(--text); border-radius: 8px; padding: 8px 16px; cursor: pointer; font-size: 0.9rem; }
+    .pagination button:disabled { opacity: .35; cursor: default; }
+    .pagination span { color: var(--dim); font-size: 0.85rem; }
+    #player { position: fixed; inset: 0; background: #000; z-index: 9999; overflow: hidden; display: none; }
+    #player.active { display: block; }
+    #player-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; transition: opacity .7s ease; }
+    #player-caption { position: absolute; bottom: 0; left: 0; right: 0; padding: 18px 36px 20px; background: rgba(0,0,0,.72); transition: opacity .7s ease; }
+    #player-caption p { color: #fff; text-align: left; font-weight: 700; letter-spacing: .01em; font-size: clamp(1.8rem, 4.5vw, 4.2rem); line-height: 1.1; }
+    #player-caption p .cap-country { color: rgba(255,255,255,.55); font-weight: 400; }
+    #player-clock { position: absolute; top: 28px; right: 36px; color: rgba(255,255,255,.3); font-size: clamp(.9rem, 1.6vw, 1.5rem); font-variant-numeric: tabular-nums; pointer-events: none; }
+    #player-counter { position: absolute; top: 28px; left: 36px; color: rgba(255,255,255,.25); font-size: clamp(.75rem, 1.2vw, 1rem); pointer-events: none; }
+    #player-progress { position: absolute; top: 0; left: 0; right: 0; height: 2px; background: rgba(255,255,255,.1); }
+    #player-progress-fill { height: 100%; background: rgba(255,255,255,.45); transition: width .5s ease; }
+    #player-controls { position: absolute; bottom: 0; left: 0; right: 0; display: flex; align-items: center; justify-content: center; gap: 10px; padding: 24px 0 28px; background: linear-gradient(to top, rgba(0,0,0,.55) 0%, transparent 100%); transition: opacity .4s; }
+    #player-controls.hidden { opacity: 0; pointer-events: none; }
+    .pc-btn { background: rgba(0,0,0,.55); backdrop-filter: blur(8px); border: none; border-radius: 12px; color: rgba(255,255,255,.8); cursor: pointer; padding: 10px 18px; font-size: 1.1rem; transition: background .15s, color .15s; }
+    .pc-btn:hover { background: rgba(0,0,0,.75); color: #fff; }
+    .pc-btn.large { font-size: 2rem; padding: 6px 16px; }
+    .pc-btn.dimmed { color: rgba(255,255,255,.3); }
+    .pc-btn.danger:hover { color: #ff6b6b; }
+    .pc-divider { width: 1px; height: 28px; background: rgba(255,255,255,.15); margin: 0 4px; }
+    .pc-speed { display: flex; align-items: center; gap: 8px; background: rgba(0,0,0,.55); backdrop-filter: blur(8px); border-radius: 12px; padding: 8px 14px; }
+    .pc-speed span { color: rgba(255,255,255,.4); font-size: .8rem; }
+    .pc-speed input[type=range] { width: 80px; accent-color: #fff; cursor: pointer; }
+    @keyframes kb1 { from { transform: scale(1) translate(0,0); } to { transform: scale(1.14) translate(0,0); } }
+    @keyframes kb2 { from { transform: scale(1.14) translate(0,0); } to { transform: scale(1) translate(0,0); } }
+    @keyframes kb3 { from { transform: scale(1.1) translate(2%,0); } to { transform: scale(1.1) translate(-2%,0); } }
+    @keyframes kb4 { from { transform: scale(1.1) translate(-2%,0); } to { transform: scale(1.1) translate(2%,0); } }
+    @keyframes kb5 { from { transform: scale(1.04) translate(-1%,-1%); } to { transform: scale(1.14) translate(1%,1%); } }
+    @keyframes kb6 { from { transform: scale(1.12) translate(1%,-1.5%); } to { transform: scale(1.03) translate(-1%,1%); } }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinning { display: inline-block; animation: spin 1.2s linear infinite; }
+    .error-box { background: rgba(255,60,60,.1); border: 1px solid rgba(255,60,60,.3); border-radius: 10px; padding: 12px 16px; color: #ff8080; font-size: .85rem; margin-top: 16px; }
+    .key-ref { margin-top: 28px; padding: 20px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; width: 100%; max-width: 560px; }
+    .key-ref h3 { font-size: .85rem; color: var(--dim); margin-bottom: 12px; text-transform: uppercase; letter-spacing: .06em; }
+    .key-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .key-item { display: flex; align-items: center; gap: 8px; font-size: .8rem; color: var(--dim); }
+    kbd { background: var(--border); border-radius: 5px; padding: 2px 7px; font-family: monospace; font-size: .75rem; color: var(--text); }
+  </style>
+</head>
+<body>
+<div id="apikey-screen" class="screen active">
+  <div class="card">
+    <h1>🔑 Chave do Claude</h1>
+    <p style="margin-top:8px">Para extrair as legendas automaticamente dos nomes das fotos, o app usa a inteligência artificial Claude. Cole abaixo a sua chave de API — ela fica salva neste browser e você não precisa digitar de novo.</p>
+    <input type="password" id="apikey-input" placeholder="sk-ant-..." autocomplete="off" />
+    <div id="apikey-error" class="error-box" style="display:none"></div>
+    <div class="btn-row"><button class="btn btn-primary" id="apikey-save-btn">Salvar e continuar →</button></div>
+    <p style="margin-top:20px; font-size:.8rem">Não tem uma chave? Crie em <a href="https://console.anthropic.com" target="_blank" style="color:var(--accent)">console.anthropic.com</a> → API Keys → Create Key.</p>
+  </div>
+</div>
+<div id="upload-screen" class="screen">
+  <div style="width:100%; max-width:560px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+      <h1 style="font-size:1.5rem; font-weight:700;">📷 Alvarez Slideshow</h1>
+      <button class="btn btn-ghost" id="change-key-btn" style="font-size:.8rem; padding:7px 14px;">Trocar chave</button>
+    </div>
+    <p style="color:var(--dim); font-size:.9rem; margin-bottom:4px;">Selecione uma pasta com as fotos. A IA lê os nomes dos arquivos e cria as legendas <strong style="color:var(--text)">AAAA.MM Cidade [País]</strong> automaticamente.</p>
+    <div class="dropzone" id="dropzone">
+      <div class="icon">📂</div>
+      <h2>Arraste a pasta aqui</h2>
+      <p>ou use um dos botões abaixo</p>
+      <div class="btn-row" style="justify-content:center; margin-top:20px;">
+        <button class="btn btn-primary" id="pick-folder-btn">Selecionar pasta</button>
+        <button class="btn btn-ghost" id="pick-files-btn">Selecionar fotos</button>
+      </div>
+    </div>
+    <input type="file" id="folder-input" multiple accept="image/*" style="display:none" />
+    <input type="file" id="files-input" multiple accept="image/*" style="display:none" />
+    <div id="upload-error" class="error-box" style="display:none"></div>
+    <div class="key-ref">
+      <h3>Controles durante o slideshow</h3>
+      <div class="key-grid">
+        <div class="key-item"><kbd>← →</kbd> Foto anterior / próxima</div>
+        <div class="key-item"><kbd>Espaço</kbd> Pausar / continuar</div>
+        <div class="key-item"><kbd>C</kbd> Mostrar / ocultar legenda</div>
+        <div class="key-item"><kbd>S</kbd> Ordem aleatória</div>
+        <div class="key-item"><kbd>F</kbd> Tela cheia</div>
+        <div class="key-item"><kbd>Esc</kbd> Sair do slideshow</div>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="processing-screen" class="screen">
+  <div class="spinning" style="font-size:3rem; margin-bottom:20px;">⚙️</div>
+  <h2 style="font-size:1.2rem; margin-bottom:8px;">Lendo os nomes das fotos com IA…</h2>
+  <p id="processing-label" style="color:var(--dim); font-size:.9rem; margin-bottom:20px;"></p>
+  <div class="progress-wrap">
+    <div class="progress-bar-bg"><div class="progress-bar-fill" id="progress-fill" style="width:0%"></div></div>
+    <p class="progress-label" id="progress-text">Preparando…</p>
+  </div>
+  <p style="color:var(--dim); font-size:.8rem; margin-top:24px;">Para muitas fotos, isso pode levar alguns minutos.</p>
+</div>
+<div id="review-screen" class="screen">
+  <div class="review-header" id="review-header">
+    <div><h1>Revisar legendas</h1><p class="stats" id="review-stats"></p></div>
+    <div class="btn-row" style="margin-top:0">
+      <button class="btn btn-primary" id="play-btn">▶ Iniciar slideshow</button>
+      <button class="btn btn-ghost" id="shuffle-btn">⇄ Aleatório</button>
+      <button class="btn btn-ghost" id="back-btn">← Nova pasta</button>
+    </div>
+  </div>
+  <div class="photo-grid" id="photo-grid"></div>
+  <div class="pagination" id="pagination"></div>
+</div>
+<div id="player">
+  <div id="player-progress"><div id="player-progress-fill" style="width:0%"></div></div>
+  <img id="player-img" src="" alt="" />
+  <div id="player-caption"><p id="player-caption-text"></p></div>
+  <div id="player-clock"></div>
+  <div id="player-counter"></div>
+  <div id="player-controls">
+    <button class="pc-btn large" id="pc-prev">‹</button>
+    <button class="pc-btn" id="pc-playpause">⏸</button>
+    <button class="pc-btn large" id="pc-next">›</button>
+    <div class="pc-divider"></div>
+    <button class="pc-btn" id="pc-caption">𝗧</button>
+    <button class="pc-btn dimmed" id="pc-shuffle">⇄</button>
+    <div class="pc-speed">
+      <span>⏱</span>
+      <input type="range" id="pc-speed-slider" min="3" max="30" step="1" value="6" />
+      <span id="pc-speed-label">6s</span>
+    </div>
+    <div class="pc-divider"></div>
+    <button class="pc-btn" id="pc-fullscreen">⛶</button>
+    <button class="pc-btn danger" id="pc-exit">✕</button>
+  </div>
+</div>
+<script>
+let apiKey = localStorage.getItem('slideshow_apikey') || '';
+let photos = [], reviewPage = 0;
+const PAGE_SIZE = 48, BATCH = 50;
+let order = [], pos = 0, isPlaying = true, showCap = true, isShuffle = false, speed = 6;
+let autoTimer = null, ctrlTimer = null;
+const kbAnims = ['kb1','kb2','kb3','kb4','kb5','kb6'];
+
+function show(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+if (apiKey) show('upload-screen'); else show('apikey-screen');
+
+document.getElementById('apikey-save-btn').addEventListener('click', () => {
+  const v = document.getElementById('apikey-input').value.trim();
+  const err = document.getElementById('apikey-error');
+  if (!v.startsWith('sk-ant-')) { err.textContent = 'A chave deve começar com "sk-ant-". Verifique e tente de novo.'; err.style.display = 'block'; return; }
+  err.style.display = 'none'; apiKey = v; localStorage.setItem('slideshow_apikey', v); show('upload-screen');
+});
+document.getElementById('change-key-btn').addEventListener('click', () => { document.getElementById('apikey-input').value = ''; show('apikey-screen'); });
+
+const folderInput = document.getElementById('folder-input');
+folderInput.setAttribute('webkitdirectory', '');
+document.getElementById('pick-folder-btn').addEventListener('click', () => folderInput.click());
+document.getElementById('pick-files-btn').addEventListener('click', () => document.getElementById('files-input').click());
+folderInput.addEventListener('change', e => handleFiles(Array.from(e.target.files)));
+document.getElementById('files-input').addEventListener('change', e => handleFiles(Array.from(e.target.files)));
+
+const dz = document.getElementById('dropzone');
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('over'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('over'));
+dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('over'); handleFiles(Array.from(e.dataTransfer.files)); });
+
+function handleFiles(files) {
+  const imgs = files.filter(f => f.type.startsWith('image/')).sort((a,b) => a.name.localeCompare(b.name));
+  const err = document.getElementById('upload-error');
+  if (imgs.length === 0) { err.textContent = 'Nenhuma imagem encontrada. Selecione uma pasta com fotos (JPG, PNG, etc).'; err.style.display = 'block'; return; }
+  err.style.display = 'none';
+  photos = imgs.map(f => ({ file: f, url: URL.createObjectURL(f), name: f.name.replace(/\.[^.]+$/, ''), year: null, month: null, city: null, country: null, caption: '' }));
+  processPhotos();
+}
+
+async function processPhotos() {
+  show('processing-screen');
+  const batches = [];
+  for (let i = 0; i < photos.length; i += BATCH) batches.push(photos.slice(i, i + BATCH));
+  document.getElementById('processing-label').textContent = `${photos.length} fotos encontradas`;
+  for (let bi = 0; bi < batches.length; bi++) {
+    try {
+      const result = await callClaude(batches[bi].map(p => p.name));
+      if (result && Array.isArray(result)) {
+        result.forEach(r => {
+          const idx = bi * BATCH + r.i;
+          if (idx < photos.length) { photos[idx].year = r.year||null; photos[idx].month = r.month||null; photos[idx].city = r.city||null; photos[idx].country = r.country||null; photos[idx].caption = buildCaption(r.year, r.month, r.city, r.country); }
+        });
+      }
+    } catch(e) { console.warn('Batch', bi, 'failed:', e); }
+    const done = Math.min((bi+1)*BATCH, photos.length);
+    const pct = Math.round(done/photos.length*100);
+    document.getElementById('progress-fill').style.width = pct+'%';
+    document.getElementById('progress-text').textContent = `Lote ${bi+1} de ${batches.length} — ${done} / ${photos.length} fotos (${pct}%)`;
+    if (bi < batches.length-1) await sleep(400);
+  }
+  reviewPage = 0; renderReview(); show('review-screen');
+}
+
+async function callClaude(filenames) {
+  const prompt = `Extract year, month, city, country from these ${filenames.length} photo filenames (index:name):\n`
+    + filenames.map((f,i) => `${i}:${f}`).join('\n')
+    + `\n\nReturn ONLY a JSON array: [{"i":0,"year":"1992","month":"08","city":"Paris","country":"França"},...]\nRules: year=4-digit (1900-2030) or null; month=2-digit ("01"-"12") or null; city=city name or null; country in Portuguese or null.`;
+  const resp = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+    body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 2048, system: 'You extract photo metadata from filenames. Return ONLY valid JSON array, no explanation. Country names in Portuguese.', messages: [{ role: 'user', content: prompt }] })
+  });
+  if (!resp.ok) { const txt = await resp.text(); throw new Error(`API ${resp.status}: ${txt}`); }
+  const data = await resp.json();
+  const text = data.content?.[0]?.text || '';
+  const m = text.match(/\[[\s\S]*\]/);
+  if (!m) throw new Error('No JSON in response');
+  return JSON.parse(m[0]);
+}
+
+function buildCaption(year, month, city, country) {
+  return JSON.stringify({ date: year ? (month ? `${year}.${month}` : year) : null, city: city||null, country: country||null });
+}
+function renderCaption(p) {
+  try { const c = JSON.parse(p.caption); const main = [c.date, c.city].filter(Boolean).join(' '); const country = c.country ? ` <span class="cap-country">[${c.country}]</span>` : ''; return main ? main+country : ''; }
+  catch { return p.caption || ''; }
+}
+function captionToText(p) {
+  try { const c = JSON.parse(p.caption); return [c.date, c.city, c.country ? `[${c.country}]` : ''].filter(Boolean).join(' '); }
+  catch { return p.caption || ''; }
+}
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+function escHtml(s) { return s.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+
+function renderReview() {
+  const parsed = photos.filter(p => p.caption).length;
+  document.getElementById('review-stats').innerHTML = `<span class="ok">${parsed}</span> com legenda · <span class="${photos.length-parsed>0?'warn':''}}">${photos.length-parsed}</span> sem legenda · ${photos.length} fotos no total`;
+  const grid = document.getElementById('photo-grid');
+  grid.innerHTML = '';
+  photos.slice(reviewPage*PAGE_SIZE, (reviewPage+1)*PAGE_SIZE).forEach((p, i) => {
+    const globalIdx = reviewPage*PAGE_SIZE+i;
+    const card = document.createElement('div');
+    card.className = 'photo-card';
+    card.innerHTML = `<div class="photo-thumb"><img src="${p.url}" loading="lazy" /></div><input class="photo-caption" type="text" value="${escHtml(captionToText(p))}" placeholder="sem legenda" data-idx="${globalIdx}" />`;
+    grid.appendChild(card);
+  });
+  grid.querySelectorAll('.photo-caption').forEach(inp => inp.addEventListener('input', e => { photos[+e.target.dataset.idx].caption = e.target.value; }));
+  const total = Math.ceil(photos.length/PAGE_SIZE);
+  const pag = document.getElementById('pagination');
+  pag.innerHTML = total > 1 ? `<button id="pag-prev" ${reviewPage===0?'disabled':''}>← Anterior</button><span>Página ${reviewPage+1} de ${total}</span><button id="pag-next" ${reviewPage>=total-1?'disabled':''}>Próxima →</button>` : '';
+  if (total > 1) {
+    pag.querySelector('#pag-prev')?.addEventListener('click', () => { reviewPage--; renderReview(); window.scrollTo(0,0); });
+    pag.querySelector('#pag-next')?.addEventListener('click', () => { reviewPage++; renderReview(); window.scrollTo(0,0); });
+  }
+}
+
+document.getElementById('play-btn').addEventListener('click', () => startPlayer(false));
+document.getElementById('shuffle-btn').addEventListener('click', () => startPlayer(true));
+document.getElementById('back-btn').addEventListener('click', () => { photos.forEach(p => URL.revokeObjectURL(p.url)); photos = []; show('upload-screen'); });
+
+const playerEl = document.getElementById('player'), imgEl = document.getElementById('player-img');
+const capWrap = document.getElementById('player-caption'), capText = document.getElementById('player-caption-text');
+const clockEl = document.getElementById('player-clock'), counterEl = document.getElementById('player-counter');
+const fillEl = document.getElementById('player-progress-fill'), controlsEl = document.getElementById('player-controls');
+
+function startPlayer(shuffle) {
+  isShuffle = shuffle;
+  order = Array.from({length: photos.length}, (_,i) => i);
+  if (shuffle) shuffleArr(order);
+  pos = 0; isPlaying = true; showCap = true; speed = 6;
+  document.getElementById('pc-speed-slider').value = 6;
+  document.getElementById('pc-speed-label').textContent = '6s';
+  document.getElementById('pc-shuffle').classList.toggle('dimmed', !isShuffle);
+  document.getElementById('pc-caption').classList.toggle('dimmed', !showCap);
+  playerEl.classList.add('active'); playerEl.style.cursor = 'none';
+  displayPhoto(true); startAutoPlay(); startClock(); revealControls();
+}
+
+function displayPhoto(immediate) {
+  const p = photos[order[pos]];
+  const kbName = kbAnims[order[pos] % kbAnims.length];
+  const ts = speed + 3;
+  if (immediate) {
+    imgEl.style.opacity = '1'; imgEl.src = p.url; imgEl.style.animation = `${kbName} ${ts}s ease-in-out both`;
+    capText.innerHTML = renderCaption(p); capWrap.style.opacity = renderCaption(p) && showCap ? '1' : '0';
+  } else {
+    imgEl.style.opacity = '0'; capWrap.style.opacity = '0';
+    setTimeout(() => {
+      imgEl.src = p.url; imgEl.style.animation = 'none'; void imgEl.offsetWidth;
+      imgEl.style.animation = `${kbName} ${ts}s ease-in-out both`;
+      capText.innerHTML = renderCaption(p); imgEl.style.opacity = '1';
+      capWrap.style.opacity = renderCaption(p) && showCap ? '1' : '0';
+    }, 700);
+  }
+  fillEl.style.width = ((pos+1)/order.length*100)+'%';
+  counterEl.textContent = `${pos+1} / ${order.length}`;
+}
+function advance(dir) { pos = (pos+dir+order.length)%order.length; displayPhoto(false); if (isPlaying) startAutoPlay(); }
+function startAutoPlay() { clearTimeout(autoTimer); if (isPlaying) autoTimer = setTimeout(() => advance(1), speed*1000); }
+let clockInterval;
+function startClock() {
+  clearInterval(clockInterval);
+  clockInterval = setInterval(() => { clockEl.textContent = new Date().toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'}); }, 1000);
+  clockEl.textContent = new Date().toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
+}
+function stopPlayer() { clearTimeout(autoTimer); clearInterval(clockInterval); playerEl.classList.remove('active'); }
+function revealControls() {
+  playerEl.style.cursor = 'default'; controlsEl.classList.remove('hidden'); clearTimeout(ctrlTimer);
+  ctrlTimer = setTimeout(() => { controlsEl.classList.add('hidden'); playerEl.style.cursor = 'none'; }, 3500);
+}
+playerEl.addEventListener('mousemove', revealControls);
+playerEl.addEventListener('click', revealControls);
+document.getElementById('pc-prev').addEventListener('click', e => { e.stopPropagation(); advance(-1); });
+document.getElementById('pc-next').addEventListener('click', e => { e.stopPropagation(); advance(1); });
+document.getElementById('pc-playpause').addEventListener('click', e => { e.stopPropagation(); isPlaying = !isPlaying; document.getElementById('pc-playpause').textContent = isPlaying ? '⏸' : '▶'; startAutoPlay(); });
+document.getElementById('pc-caption').addEventListener('click', e => { e.stopPropagation(); showCap = !showCap; e.target.classList.toggle('dimmed', !showCap); capWrap.style.opacity = renderCaption(photos[order[pos]]) && showCap ? '1' : '0'; });
+document.getElementById('pc-shuffle').addEventListener('click', e => { e.stopPropagation(); isShuffle = !isShuffle; e.target.classList.toggle('dimmed', !isShuffle); if (isShuffle) shuffleArr(order); else order = Array.from({length:photos.length},(_,i)=>i); pos = 0; displayPhoto(false); });
+document.getElementById('pc-speed-slider').addEventListener('input', e => { e.stopPropagation(); speed = +e.target.value; document.getElementById('pc-speed-label').textContent = speed+'s'; startAutoPlay(); });
+document.getElementById('pc-speed-slider').addEventListener('click', e => e.stopPropagation());
+document.getElementById('pc-fullscreen').addEventListener('click', e => { e.stopPropagation(); if (!document.fullscreenElement) playerEl.requestFullscreen(); else document.exitFullscreen(); });
+document.getElementById('pc-exit').addEventListener('click', e => { e.stopPropagation(); if (document.fullscreenElement) document.exitFullscreen(); stopPlayer(); show('review-screen'); });
+document.addEventListener('keydown', e => {
+  if (!playerEl.classList.contains('active')) return;
+  revealControls();
+  switch(e.key) {
+    case 'ArrowRight': case 'ArrowDown': advance(1); break;
+    case 'ArrowLeft': case 'ArrowUp': advance(-1); break;
+    case ' ': e.preventDefault(); isPlaying = !isPlaying; document.getElementById('pc-playpause').textContent = isPlaying ? '⏸' : '▶'; startAutoPlay(); break;
+    case 'c': case 'C': showCap = !showCap; document.getElementById('pc-caption').classList.toggle('dimmed', !showCap); capWrap.style.opacity = renderCaption(photos[order[pos]]) && showCap ? '1' : '0'; break;
+    case 's': case 'S': isShuffle = !isShuffle; document.getElementById('pc-shuffle').classList.toggle('dimmed', !isShuffle); if (isShuffle) shuffleArr(order); else order = Array.from({length:photos.length},(_,i)=>i); pos = 0; displayPhoto(false); break;
+    case 'f': case 'F': if (!document.fullscreenElement) playerEl.requestFullscreen(); else document.exitFullscreen(); break;
+    case 'Escape': if (!document.fullscreenElement) { stopPlayer(); show('review-screen'); } break;
+  }
+});
+function shuffleArr(arr) { for (let i = arr.length-1; i > 0; i--) { const j = Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]]; } }
+</script>
+</body>
+</html>
