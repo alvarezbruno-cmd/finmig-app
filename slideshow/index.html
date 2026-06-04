@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Slideshow de Fotos</title>
+  <title>Alvarez Slideshow</title>
   <style>
     /* ── Base ── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -78,15 +78,28 @@
     .btn-ghost:not(:disabled):hover  { opacity: .78; }
     .btn-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 20px; }
 
+    /* ── Resume boxes ── */
+    .resume-box {
+      background: rgba(79,142,247,.08);
+      border: 1px solid rgba(79,142,247,.25);
+      border-radius: 14px;
+      padding: 20px 24px;
+      margin-bottom: 20px;
+    }
+    .resume-box .box-label { font-size: .78rem; color: var(--dim); margin-bottom: 6px; letter-spacing:.04em; text-transform:uppercase; }
+    .resume-box .folder-name { font-weight: 700; font-size: 1rem; margin-bottom: 0; word-break:break-all; }
+
+    .sep-text { text-align: center; color: var(--dim); font-size: .8rem; margin: 20px 0 4px; }
+
     /* ── Drop zone ── */
     .dropzone {
       border: 2px dashed var(--border);
       border-radius: 14px;
-      padding: 60px 20px;
+      padding: 48px 20px;
       text-align: center;
       cursor: pointer;
       transition: border-color .2s, background .2s;
-      margin-top: 24px;
+      margin-top: 20px;
     }
     .dropzone.over { border-color: var(--accent); background: rgba(79,142,247,.07); }
     .dropzone .icon { font-size: 3rem; margin-bottom: 12px; }
@@ -280,14 +293,38 @@
 <div id="upload-screen" class="screen">
   <div style="width:100%; max-width:560px;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
-      <h1 style="font-size:1.5rem; font-weight:700;">📷 Slideshow de Fotos</h1>
+      <h1 style="font-size:1.5rem; font-weight:700;">📷 Alvarez Slideshow</h1>
       <button class="btn btn-ghost" id="change-key-btn" style="font-size:.8rem; padding:7px 14px;">Trocar chave</button>
     </div>
-    <p style="color:var(--dim); font-size:.9rem; margin-bottom:4px;">
+    <p style="color:var(--dim); font-size:.9rem; margin-bottom:20px;">
       Selecione uma pasta com as fotos do seu pai.
       A IA lê os nomes dos arquivos e cria as legendas
-      <strong style="color:var(--text)">[ano] Cidade - País</strong> automaticamente.
+      <strong style="color:var(--text)">[ano] Cidade País</strong> automaticamente.
     </p>
+
+    <!-- Retomar fotos já carregadas em memória -->
+    <div id="in-memory-section" style="display:none">
+      <div class="resume-box">
+        <div class="box-label">Fotos carregadas</div>
+        <div class="folder-name" id="in-memory-label"></div>
+        <div class="btn-row">
+          <button class="btn btn-primary" id="resume-review-btn">← Voltar à revisão</button>
+        </div>
+      </div>
+      <div class="sep-text">— ou escolha outra pasta —</div>
+    </div>
+
+    <!-- Retomar pasta salva (File System Access API) -->
+    <div id="continue-section" style="display:none">
+      <div class="resume-box">
+        <div class="box-label">Pasta salva</div>
+        <div class="folder-name" id="continue-folder-name"></div>
+        <div class="btn-row">
+          <button class="btn btn-primary" id="continue-btn">📂 Abrir esta pasta</button>
+        </div>
+      </div>
+      <div class="sep-text">— ou escolha outra pasta —</div>
+    </div>
 
     <div class="dropzone" id="dropzone">
       <div class="icon">📂</div>
@@ -389,9 +426,10 @@ let photos  = [];   // [{file, url, name, year, city, country, caption}]
 let reviewPage  = 0;
 const PAGE_SIZE = 48;
 const BATCH     = 50;
+let savedDirHandle = null;  // FileSystemDirectoryHandle persisted in IndexedDB
 
 // Player state
-let order     = [];   // indices into photos[]
+let order     = [];
 let pos       = 0;
 let isPlaying = true;
 let showCap   = true;
@@ -399,7 +437,53 @@ let isShuffle = false;
 let speed     = 6;
 let autoTimer = null;
 let ctrlTimer = null;
-let kbAnims   = ['kb1','kb2','kb3','kb4','kb5','kb6'];
+const kbAnims = ['kb1','kb2','kb3','kb4','kb5','kb6'];
+
+// ═══════════════════════════════════════════════════════
+//  INDEXEDDB HELPERS
+// ═══════════════════════════════════════════════════════
+function openDB() {
+  return new Promise((res, rej) => {
+    const req = indexedDB.open('alvarez-slideshow', 1);
+    req.onupgradeneeded = e => e.target.result.createObjectStore('kv');
+    req.onsuccess = e => res(e.target.result);
+    req.onerror   = () => rej(req.error);
+  });
+}
+async function dbGet(key) {
+  const db = await openDB();
+  return new Promise((res, rej) => {
+    const r = db.transaction('kv','readonly').objectStore('kv').get(key);
+    r.onsuccess = () => res(r.result);
+    r.onerror   = () => rej(r.error);
+  });
+}
+async function dbSet(key, val) {
+  const db = await openDB();
+  return new Promise((res, rej) => {
+    const r = db.transaction('kv','readwrite').objectStore('kv').put(val, key);
+    r.onsuccess = () => res();
+    r.onerror   = () => rej(r.error);
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+//  CAPTION CACHE (localStorage)
+// ═══════════════════════════════════════════════════════
+function loadCaptionCache() {
+  try { return JSON.parse(localStorage.getItem('slideshow_captions') || '{}'); }
+  catch { return {}; }
+}
+function saveCaptionCache(cache) {
+  try { localStorage.setItem('slideshow_captions', JSON.stringify(cache)); }
+  catch (e) { console.warn('Caption cache save failed:', e); }
+}
+// Persist current photos captions into cache (call before leaving review screen)
+function flushCaptionsToCache() {
+  const cache = loadCaptionCache();
+  photos.forEach(p => { if (p.caption) cache[p.file.name] = p.caption; });
+  saveCaptionCache(cache);
+}
 
 // ═══════════════════════════════════════════════════════
 //  SCREENS
@@ -409,8 +493,46 @@ function show(id) {
   document.getElementById(id).classList.add('active');
 }
 
-// Init: go to upload if key exists, else ask for key
-if (apiKey) show('upload-screen'); else show('apikey-screen');
+function showUploadError(msg) {
+  const el = document.getElementById('upload-error');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+function hideUploadError() {
+  document.getElementById('upload-error').style.display = 'none';
+}
+
+// Update upload screen to reflect current state
+function updateUploadUI() {
+  const memSec = document.getElementById('in-memory-section');
+  if (photos.length > 0) {
+    document.getElementById('in-memory-label').textContent =
+      `${photos.length} fotos carregadas`;
+    memSec.style.display = 'block';
+  } else {
+    memSec.style.display = 'none';
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════
+async function init() {
+  if (!apiKey) { show('apikey-screen'); return; }
+  show('upload-screen');
+  updateUploadUI();
+  try {
+    const handle = await dbGet('dirHandle');
+    if (handle) {
+      savedDirHandle = handle;
+      document.getElementById('continue-folder-name').textContent = handle.name;
+      document.getElementById('continue-section').style.display = 'block';
+    }
+  } catch (e) {
+    console.warn('Could not read IndexedDB:', e);
+  }
+}
+init();
 
 // ═══════════════════════════════════════════════════════
 //  API KEY SCREEN
@@ -426,7 +548,7 @@ document.getElementById('apikey-save-btn').addEventListener('click', () => {
   err.style.display = 'none';
   apiKey = v;
   localStorage.setItem('slideshow_apikey', v);
-  show('upload-screen');
+  init();
 });
 
 document.getElementById('change-key-btn').addEventListener('click', () => {
@@ -435,15 +557,58 @@ document.getElementById('change-key-btn').addEventListener('click', () => {
 });
 
 // ═══════════════════════════════════════════════════════
-//  UPLOAD SCREEN
+//  RESUME BUTTONS
 // ═══════════════════════════════════════════════════════
+document.getElementById('resume-review-btn').addEventListener('click', () => {
+  if (photos.length > 0) { renderReview(); show('review-screen'); }
+});
 
-// Set webkitdirectory on folder input
+document.getElementById('continue-btn').addEventListener('click', async () => {
+  if (!savedDirHandle) return;
+  hideUploadError();
+  try {
+    let perm = await savedDirHandle.queryPermission({ mode: 'read' });
+    if (perm !== 'granted') {
+      perm = await savedDirHandle.requestPermission({ mode: 'read' });
+    }
+    if (perm !== 'granted') {
+      showUploadError('Permissão para ler a pasta foi negada. Tente selecionar a pasta novamente.');
+      return;
+    }
+    await loadFromHandle(savedDirHandle);
+  } catch (e) {
+    showUploadError('Erro ao acessar a pasta: ' + (e.message || e));
+  }
+});
+
+// ═══════════════════════════════════════════════════════
+//  UPLOAD SCREEN — FOLDER / FILE SELECTION
+// ═══════════════════════════════════════════════════════
 const folderInput = document.getElementById('folder-input');
 folderInput.setAttribute('webkitdirectory', '');
 
-document.getElementById('pick-folder-btn').addEventListener('click', () => folderInput.click());
-document.getElementById('pick-files-btn').addEventListener('click', () => document.getElementById('files-input').click());
+document.getElementById('pick-folder-btn').addEventListener('click', async () => {
+  hideUploadError();
+  if ('showDirectoryPicker' in window) {
+    try {
+      const handle = await window.showDirectoryPicker({ mode: 'read' });
+      savedDirHandle = handle;
+      try { await dbSet('dirHandle', handle); } catch (e) { console.warn('IndexedDB save failed:', e); }
+      document.getElementById('continue-folder-name').textContent = handle.name;
+      document.getElementById('continue-section').style.display = 'block';
+      await loadFromHandle(handle);
+    } catch (e) {
+      if (e.name !== 'AbortError') showUploadError('Erro ao abrir a pasta: ' + (e.message || e));
+    }
+  } else {
+    folderInput.click();
+  }
+});
+
+document.getElementById('pick-files-btn').addEventListener('click', () => {
+  hideUploadError();
+  document.getElementById('files-input').click();
+});
 
 folderInput.addEventListener('change', e => handleFiles(Array.from(e.target.files)));
 document.getElementById('files-input').addEventListener('change', e => handleFiles(Array.from(e.target.files)));
@@ -452,53 +617,119 @@ document.getElementById('files-input').addEventListener('change', e => handleFil
 const dz = document.getElementById('dropzone');
 dz.addEventListener('dragover',  e => { e.preventDefault(); dz.classList.add('over'); });
 dz.addEventListener('dragleave', () => dz.classList.remove('over'));
-dz.addEventListener('drop',      e => { e.preventDefault(); dz.classList.remove('over'); handleFiles(Array.from(e.dataTransfer.files)); });
+dz.addEventListener('drop', e => {
+  e.preventDefault(); dz.classList.remove('over');
+  hideUploadError();
+  handleFiles(Array.from(e.dataTransfer.files));
+});
 
-function handleFiles(files) {
-  const imgs = files.filter(f => f.type.startsWith('image/')).sort((a,b) => a.name.localeCompare(b.name));
-  const err = document.getElementById('upload-error');
-  if (imgs.length === 0) {
-    err.textContent = 'Nenhuma imagem encontrada. Selecione uma pasta com fotos (JPG, PNG, etc).';
-    err.style.display = 'block';
+async function loadFromHandle(handle) {
+  show('processing-screen');
+  document.getElementById('processing-label').textContent = 'Lendo arquivos da pasta…';
+  document.getElementById('progress-fill').style.width = '0%';
+  document.getElementById('progress-text').textContent = 'Aguarde…';
+
+  const imgs = [];
+  try {
+    for await (const [, fh] of handle) {
+      if (fh.kind !== 'file') continue;
+      const f = await fh.getFile();
+      if (f.type.startsWith('image/')) imgs.push(f);
+    }
+  } catch (e) {
+    show('upload-screen');
+    showUploadError('Erro ao ler a pasta: ' + (e.message || e));
     return;
   }
-  err.style.display = 'none';
+
+  if (imgs.length === 0) {
+    show('upload-screen');
+    showUploadError('Nenhuma imagem encontrada nessa pasta.');
+    return;
+  }
+  imgs.sort((a, b) => a.name.localeCompare(b.name));
+  handleFiles(imgs, true /* already on processing screen */);
+}
+
+function handleFiles(files, alreadyOnProcessing) {
+  const imgs = files.filter(f => f.type.startsWith('image/')).sort((a,b) => a.name.localeCompare(b.name));
+  if (imgs.length === 0) {
+    showUploadError('Nenhuma imagem encontrada. Selecione uma pasta com fotos (JPG, PNG, etc).');
+    return;
+  }
+  hideUploadError();
+  // Revoke previous object URLs
+  photos.forEach(p => URL.revokeObjectURL(p.url));
   photos = imgs.map(f => ({
     file: f,
     url: URL.createObjectURL(f),
     name: f.name.replace(/\.[^.]+$/, ''),
     year: null, month: null, city: null, country: null, caption: ''
   }));
-  processPhotos();
+  processPhotos(alreadyOnProcessing);
 }
 
 // ═══════════════════════════════════════════════════════
 //  PROCESSING
 // ═══════════════════════════════════════════════════════
-async function processPhotos() {
-  show('processing-screen');
+async function processPhotos(alreadyOnProcessing) {
+  if (!alreadyOnProcessing) show('processing-screen');
+
+  const captionCache = loadCaptionCache();
+
+  // Apply cached captions; collect indices that still need Claude
+  const uncachedIdxs = [];
+  photos.forEach((p, i) => {
+    const cached = captionCache[p.file.name];
+    if (cached) {
+      p.caption = cached;
+      try {
+        const c = JSON.parse(cached);
+        p.year    = c.date ? c.date.split('.')[0] : null;
+        p.month   = c.date && c.date.includes('.') ? c.date.split('.')[1] : null;
+        p.city    = c.city    || null;
+        p.country = c.country || null;
+      } catch {}
+    } else {
+      uncachedIdxs.push(i);
+    }
+  });
+
+  if (uncachedIdxs.length === 0) {
+    // All captions already cached — skip Claude entirely
+    document.getElementById('progress-fill').style.width = '100%';
+    document.getElementById('progress-text').textContent = 'Todas as legendas já estavam salvas!';
+    await sleep(600);
+    reviewPage = 0;
+    renderReview();
+    show('review-screen');
+    return;
+  }
+
+  document.getElementById('processing-label').textContent =
+    `${uncachedIdxs.length} fotos novas · ${photos.length - uncachedIdxs.length} já processadas`;
 
   const batches = [];
-  for (let i = 0; i < photos.length; i += BATCH) batches.push(photos.slice(i, i + BATCH));
+  for (let i = 0; i < uncachedIdxs.length; i += BATCH) batches.push(uncachedIdxs.slice(i, i + BATCH));
 
   let done = 0;
-  document.getElementById('processing-label').textContent = `${photos.length} fotos encontradas`;
-
   for (let bi = 0; bi < batches.length; bi++) {
-    const batch = batches[bi];
-    const filenames = batch.map(p => p.name);
+    const batch = batches[bi];  // global photo indices
+    const filenames = batch.map(gi => photos[gi].name);
 
     try {
       const result = await callClaude(filenames);
       if (result && Array.isArray(result)) {
         result.forEach(r => {
-          const idx = bi * BATCH + r.i;
-          if (idx < photos.length) {
-            photos[idx].year    = r.year    || null;
-            photos[idx].month   = r.month   || null;
-            photos[idx].city    = r.city    || null;
-            photos[idx].country = r.country || null;
-            photos[idx].caption = buildCaption(r.year, r.month, r.city, r.country);
+          const gi = batch[r.i];
+          if (gi !== undefined && gi < photos.length) {
+            const caption = buildCaption(r.year, r.month, r.city, r.country);
+            photos[gi].year    = r.year    || null;
+            photos[gi].month   = r.month   || null;
+            photos[gi].city    = r.city    || null;
+            photos[gi].country = r.country || null;
+            photos[gi].caption = caption;
+            captionCache[photos[gi].file.name] = caption;
           }
         });
       }
@@ -506,14 +737,16 @@ async function processPhotos() {
       console.warn('Batch', bi, 'failed:', e);
     }
 
-    done = Math.min((bi + 1) * BATCH, photos.length);
-    const pct = Math.round((done / photos.length) * 100);
+    done = Math.min((bi + 1) * BATCH, uncachedIdxs.length);
+    const pct = Math.round((done / uncachedIdxs.length) * 100);
     document.getElementById('progress-fill').style.width = pct + '%';
     document.getElementById('progress-text').textContent =
-      `Lote ${bi + 1} de ${batches.length} — ${done} / ${photos.length} fotos (${pct}%)`;
+      `Lote ${bi + 1} de ${batches.length} — ${done} / ${uncachedIdxs.length} fotos (${pct}%)`;
 
     if (bi < batches.length - 1) await sleep(400);
   }
+
+  saveCaptionCache(captionCache);
 
   reviewPage = 0;
   renderReview();
@@ -555,8 +788,6 @@ async function callClaude(filenames) {
 }
 
 function buildCaption(year, month, city, country) {
-  // Format: "1992.08 Paris [França]"
-  // Stored as JSON so the player can render date+city in white and [country] in grey
   return JSON.stringify({
     date: year ? (month ? `${year}.${month}` : year) : null,
     city: city || null,
@@ -565,14 +796,13 @@ function buildCaption(year, month, city, country) {
 }
 
 function renderCaption(p) {
-  // Returns HTML string for the caption paragraph
   try {
     const c = JSON.parse(p.caption);
     const main = [c.date, c.city].filter(Boolean).join(' ');
     const country = c.country ? ` <span class="cap-country">[${c.country}]</span>` : '';
     return main ? main + country : '';
   } catch {
-    return p.caption || '';  // fallback for manually typed captions
+    return p.caption || '';
   }
 }
 
@@ -603,13 +833,16 @@ function renderReview() {
   });
 
   grid.querySelectorAll('.photo-caption').forEach(inp => {
-    inp.addEventListener('input', e => {
-      // When user manually edits, store plain text directly
-      photos[+e.target.dataset.idx].caption = e.target.value;
+    inp.addEventListener('change', e => {
+      // On change store plain text; also update cache
+      const idx = +e.target.dataset.idx;
+      photos[idx].caption = e.target.value;
+      const cache = loadCaptionCache();
+      cache[photos[idx].file.name] = e.target.value;
+      saveCaptionCache(cache);
     });
   });
 
-  // Pagination
   const total = Math.ceil(photos.length / PAGE_SIZE);
   const pag = document.getElementById('pagination');
   pag.innerHTML = total > 1
@@ -629,8 +862,8 @@ function escHtml(s) { return s.replace(/&/g,'&amp;').replace(/"/g,'&quot;').repl
 document.getElementById('play-btn').addEventListener('click', () => startPlayer(false));
 document.getElementById('shuffle-btn').addEventListener('click', () => startPlayer(true));
 document.getElementById('back-btn').addEventListener('click', () => {
-  photos.forEach(p => URL.revokeObjectURL(p.url));
-  photos = [];
+  flushCaptionsToCache();
+  updateUploadUI();
   show('upload-screen');
 });
 
@@ -684,7 +917,7 @@ function displayPhoto(immediate) {
     setTimeout(() => {
       imgEl.src = p.url;
       imgEl.style.animation = 'none';
-      void imgEl.offsetWidth; // reflow to restart animation
+      void imgEl.offsetWidth;
       imgEl.style.animation = `${kbName} ${totalSpeed}s ease-in-out both`;
       capText.innerHTML = renderCaption(p);
       imgEl.style.opacity = '1';
@@ -821,7 +1054,6 @@ document.addEventListener('keydown', e => {
 //  UTILITIES
 // ═══════════════════════════════════════════════════════
 function captionToText(p) {
-  // Convert structured caption (JSON) to plain text for the edit input
   try {
     const c = JSON.parse(p.caption);
     return [c.date, c.city, c.country ? `[${c.country}]` : ''].filter(Boolean).join(' ');
