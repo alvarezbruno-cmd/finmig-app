@@ -644,20 +644,52 @@ document.getElementById('add-folder-review-btn').addEventListener('click', () =>
 //  FILE SYSTEM ACCESS — read images + permissions
 // ═══════════════════════════════════════════════════════
 async function ensurePermission(handle) {
-  let p = await handle.queryPermission({ mode: 'read' });
-  if (p !== 'granted') p = await handle.requestPermission({ mode: 'read' });
+  let p = await handle.queryPermission({ mode: 'readwrite' });
+  if (p !== 'granted') p = await handle.requestPermission({ mode: 'readwrite' });
   return p === 'granted';
 }
 async function readImagesFromHandle(handle) {
   if (!(await ensurePermission(handle)))
     throw new Error('Permissão negada para a pasta "' + handle.name + '".');
   const imgs = [];
-  for await (const [, fh] of handle) {
+  let legendas = null;
+  for await (const [name, fh] of handle) {
     if (fh.kind !== 'file') continue;
+    if (name === 'legendas.json') {
+      try { legendas = JSON.parse(await (await fh.getFile()).text()); } catch {}
+      continue;
+    }
     const f = await fh.getFile();
     if (f.type.startsWith('image/')) imgs.push(f);
   }
-  return imgs;
+  return { files: imgs, legendas };
+}
+async function writeLegendasJson(handle, data) {
+  try {
+    const fh = await handle.getFileHandle('legendas.json', { create: true });
+    const w = await fh.createWritable();
+    await w.write(JSON.stringify(data, null, 2));
+    await w.close();
+  } catch (e) { console.warn('Não foi possível salvar legendas.json:', e); }
+}
+let saveTimer = null;
+async function saveLegendasToFolders() {
+  const byFolder = new Map();
+  photos.forEach(p => {
+    if (!p.folderHandle) return;
+    if (!byFolder.has(p.folderHandle.name))
+      byFolder.set(p.folderHandle.name, { handle: p.folderHandle, fotos: {} });
+    byFolder.get(p.folderHandle.name).fotos[p.file.name] = {
+      dados: p.caption || '', tamanho: p.capScale || 1
+    };
+  });
+  for (const { handle, fotos } of byFolder.values())
+    await writeLegendasJson(handle, { atualizado: new Date().toLocaleDateString('pt-BR'), fotos });
+  flushCaptionsToCache();
+}
+function scheduleSave() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => saveLegendasToFolders(), 1500);
 }
 
 // Pick a folder, remember it, and load it (append = add to current photos)
@@ -671,20 +703,20 @@ async function pickAndAddFolder(append) {
   }
   let handle;
   try {
-    handle = await window.showDirectoryPicker({ mode: 'read' });
+    handle = await window.showDirectoryPicker({ mode: 'readwrite' });
   } catch (e) {
     if (e.name !== 'AbortError') showUploadError('Erro ao abrir a pasta: ' + (e.message || e));
     return;
   }
 
-  let imgs;
+  let result;
   try {
-    imgs = await readImagesFromHandle(handle);
+    result = await readImagesFromHandle(handle);
   } catch (e) {
     showUploadError(e.message || String(e));
     return;
   }
-  if (!imgs.length) { showUploadError('Nenhuma imagem encontrada nessa pasta.'); return; }
+  if (!result.files.length) { showUploadError('Nenhuma imagem encontrada nessa pasta.'); return; }
 
   // Remember the folder (replace if a folder with the same name already exists)
   const exists = savedHandles.some(h => h.name === handle.name);
@@ -694,7 +726,7 @@ async function pickAndAddFolder(append) {
   renderFoldersList();
 
   show('processing-screen');
-  buildPhotoObjects(imgs, { append: append && photos.length > 0 });
+  buildPhotoObjects([{ files: result.files, handle, legendas: result.legendas }], { append: append && photos.length > 0 });
   processPhotos(true);
 }
 
@@ -707,19 +739,21 @@ async function openAllFolders() {
   document.getElementById('progress-fill').style.width = '0%';
   document.getElementById('progress-text').textContent = 'Aguarde…';
 
-  let all = [];
+  const groups = [];
   const failed = [];
   for (const h of savedHandles) {
-    try { all = all.concat(await readImagesFromHandle(h)); }
-    catch (e) { console.warn(e); failed.push(h.name); }
+    try {
+      const r = await readImagesFromHandle(h);
+      if (r.files.length) groups.push({ files: r.files, handle: h, legendas: r.legendas });
+    } catch (e) { console.warn(e); failed.push(h.name); }
   }
-  if (!all.length) {
+  if (!groups.length) {
     show('upload-screen');
     showUploadError('Nenhuma imagem encontrada nas pastas salvas.' +
       (failed.length ? ' Não consegui ler: ' + failed.join(', ') + '.' : ''));
     return;
   }
-  buildPhotoObjects(all, { append: false });
+  buildPhotoObjects(groups, { append: false });
   processPhotos(true);
 }
 
@@ -740,7 +774,7 @@ folderInput.addEventListener('change', e => {
   if (!files.length) { showUploadError('Nenhuma imagem encontrada.'); return; }
   hideUploadError();
   show('processing-screen');
-  buildPhotoObjects(files, { append: pendingAppend && photos.length > 0 });
+  buildPhotoObjects([{ files, handle: null, legendas: null }], { append: pendingAppend && photos.length > 0 });
   pendingAppend = false;
   processPhotos(true);
 });
@@ -749,7 +783,7 @@ document.getElementById('files-input').addEventListener('change', e => {
   if (!files.length) { showUploadError('Nenhuma imagem encontrada.'); return; }
   hideUploadError();
   show('processing-screen');
-  buildPhotoObjects(files, { append: false });
+  buildPhotoObjects([{ files, handle: null, legendas: null }], { append: false });
   processPhotos(true);
 });
 
@@ -762,27 +796,34 @@ dz.addEventListener('drop', e => {
   const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
   if (!files.length) { showUploadError('Nenhuma imagem encontrada.'); return; }
   show('processing-screen');
-  buildPhotoObjects(files, { append: false });
+  buildPhotoObjects([{ files, handle: null, legendas: null }], { append: false });
   processPhotos(true);
 });
 
-// Build photo objects, applying cached sizes, optionally appending + de-duping by filename
-function buildPhotoObjects(files, { append }) {
+// Build photo objects from one or more { files, handle, legendas } groups
+function buildPhotoObjects(groups, { append }) {
   if (!append) {
     photos.forEach(p => URL.revokeObjectURL(p.url));
     photos = [];
   }
   const existing = new Set(photos.map(p => p.file.name));
   const sizeCache = loadSizeCache();
-  files.slice().sort((a, b) => a.name.localeCompare(b.name)).forEach(f => {
-    if (existing.has(f.name)) return;   // skip duplicates across folders
-    existing.add(f.name);
-    photos.push({
-      file: f,
-      url: URL.createObjectURL(f),
-      name: f.name.replace(/\.[^.]+$/, ''),
-      year: null, month: null, city: null, country: null, caption: '',
-      capScale: sizeCache[f.name] || 1
+  groups.forEach(({ files, handle, legendas }) => {
+    const lMap = legendas?.fotos || {};
+    files.slice().sort((a, b) => a.name.localeCompare(b.name)).forEach(f => {
+      if (existing.has(f.name)) return;
+      existing.add(f.name);
+      const ld = lMap[f.name];
+      photos.push({
+        file: f,
+        url: URL.createObjectURL(f),
+        name: f.name.replace(/\.[^.]+$/, ''),
+        year: null, month: null, city: null, country: null,
+        caption: '',
+        capScale: ld?.tamanho || sizeCache[f.name] || 1,
+        folderHandle: handle || null,
+        _fromJson: ld?.dados || null   // caption pre-loaded from legendas.json
+      });
     });
   });
 }
@@ -795,14 +836,14 @@ async function processPhotos(alreadyOnProcessing) {
 
   const captionCache = loadCaptionCache();
 
-  // Apply cached captions; collect indices that still need Claude
+  // Apply captions: legendas.json takes priority, then localStorage cache
   const uncachedIdxs = [];
   photos.forEach((p, i) => {
-    const cached = captionCache[p.file.name];
-    if (cached) {
-      p.caption = cached;
+    const caption = p._fromJson || captionCache[p.file.name];
+    if (caption) {
+      p.caption = caption;
       try {
-        const c = JSON.parse(cached);
+        const c = JSON.parse(caption);
         p.year    = c.date ? c.date.split('.')[0] : null;
         p.month   = c.date && c.date.includes('.') ? c.date.split('.')[1] : null;
         p.city    = c.city    || null;
@@ -820,6 +861,7 @@ async function processPhotos(alreadyOnProcessing) {
     reviewPage = 0;
     renderReview();
     show('review-screen');
+    await saveLegendasToFolders();
     return;
   }
 
@@ -868,6 +910,7 @@ async function processPhotos(alreadyOnProcessing) {
   reviewPage = 0;
   renderReview();
   show('review-screen');
+  await saveLegendasToFolders();
 }
 
 async function callClaude(filenames) {
@@ -962,6 +1005,7 @@ function renderReview() {
       const cache = loadCaptionCache();
       cache[photos[idx].file.name] = e.target.value;
       saveCaptionCache(cache);
+      scheduleSave();
     });
   });
   grid.querySelectorAll('.cs-dec').forEach(b => b.addEventListener('click', e => bumpScale(+e.target.dataset.idx, -0.1)));
@@ -984,14 +1028,15 @@ function bumpScale(idx, delta) {
   const newScale = setPhotoScale(idx, (photos[idx].capScale || 1) + delta);
   const valEl = document.querySelector(`.cs-val[data-idx="${idx}"]`);
   if (valEl) valEl.textContent = Math.round(newScale * 100) + '%';
+  scheduleSave();
 }
 
 function escHtml(s) { return s.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
 
 document.getElementById('play-btn').addEventListener('click', () => startPlayer(false));
 document.getElementById('shuffle-btn').addEventListener('click', () => startPlayer(true));
-document.getElementById('back-btn').addEventListener('click', () => {
-  flushCaptionsToCache();
+document.getElementById('back-btn').addEventListener('click', async () => {
+  await saveLegendasToFolders();
   updateUploadUI();
   show('upload-screen');
 });
@@ -1129,6 +1174,7 @@ function adjustCurrentScale(delta) {
   const gi = order[pos];
   setPhotoScale(gi, (photos[gi].capScale || 1) + delta);
   applyCurrentCapSize();
+  scheduleSave();
 }
 
 document.getElementById('pc-shuffle').addEventListener('click', e => {
