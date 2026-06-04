@@ -91,6 +91,13 @@
 
     .sep-text { text-align: center; color: var(--dim); font-size: .8rem; margin: 20px 0 4px; }
 
+    /* ── Folder list (album) ── */
+    .folder-row { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 0; border-top:1px solid var(--border); }
+    .folder-row:first-child { border-top:none; }
+    .folder-row .fr-name { font-size:.9rem; word-break:break-all; display:flex; align-items:center; gap:6px; }
+    .folder-remove { background:none; border:none; color:var(--dim); cursor:pointer; font-size:.95rem; padding:4px 8px; border-radius:6px; }
+    .folder-remove:hover { color:#ff6b6b; background:rgba(255,107,107,.08); }
+
     /* ── Drop zone ── */
     .dropzone {
       border: 2px dashed var(--border);
@@ -137,6 +144,17 @@
     }
     .photo-caption:focus { border-color: var(--accent); }
     .photo-caption::placeholder { color: #555; }
+
+    /* ── Per-photo caption size control ── */
+    .cap-size { display:flex; align-items:center; gap:6px; }
+    .cap-size .cs-label { color: var(--dim); font-size:.68rem; margin-right:auto; }
+    .cap-size button {
+      background: var(--border); border:none; color: var(--text);
+      border-radius:6px; width:28px; height:24px; cursor:pointer;
+      font-size:.75rem; font-weight:700; line-height:1;
+    }
+    .cap-size button:hover { background:#3a3a3c; }
+    .cap-size .cs-val { color: var(--dim); font-size:.7rem; min-width:38px; text-align:center; font-variant-numeric:tabular-nums; }
 
     /* ── Pagination ── */
     .pagination { display: flex; align-items: center; gap: 12px; margin-top: 24px; margin-bottom: 40px; }
@@ -210,6 +228,7 @@
       padding: 24px 0 28px;
       background: linear-gradient(to top, rgba(0,0,0,.55) 0%, transparent 100%);
       transition: opacity .4s;
+      flex-wrap: wrap;
     }
     #player-controls.hidden { opacity: 0; pointer-events: none; }
 
@@ -228,6 +247,7 @@
     .pc-btn.large { font-size: 2rem; padding: 6px 16px; }
     .pc-btn.dimmed { color: rgba(255,255,255,.3); }
     .pc-btn.danger:hover { color: #ff6b6b; }
+    .pc-btn.small { font-size: .9rem; font-weight:700; padding: 10px 14px; }
 
     .pc-divider { width: 1px; height: 28px; background: rgba(255,255,255,.15); margin: 0 4px; }
 
@@ -297,7 +317,7 @@
       <button class="btn btn-ghost" id="change-key-btn" style="font-size:.8rem; padding:7px 14px;">Trocar chave</button>
     </div>
     <p style="color:var(--dim); font-size:.9rem; margin-bottom:20px;">
-      Selecione uma pasta com as fotos do seu pai.
+      Junte uma ou mais pastas com as fotos do seu pai.
       A IA lê os nomes dos arquivos e cria as legendas
       <strong style="color:var(--text)">[ano] Cidade País</strong> automaticamente.
     </p>
@@ -305,30 +325,31 @@
     <!-- Retomar fotos já carregadas em memória -->
     <div id="in-memory-section" style="display:none">
       <div class="resume-box">
-        <div class="box-label">Fotos carregadas</div>
+        <div class="box-label">Fotos carregadas agora</div>
         <div class="folder-name" id="in-memory-label"></div>
         <div class="btn-row">
           <button class="btn btn-primary" id="resume-review-btn">← Voltar à revisão</button>
         </div>
       </div>
-      <div class="sep-text">— ou escolha outra pasta —</div>
+      <div class="sep-text">— ou abra suas pastas —</div>
     </div>
 
-    <!-- Retomar pasta salva (File System Access API) -->
-    <div id="continue-section" style="display:none">
+    <!-- Pastas salvas (álbum) -->
+    <div id="folders-section" style="display:none">
       <div class="resume-box">
-        <div class="box-label">Pasta salva</div>
-        <div class="folder-name" id="continue-folder-name"></div>
+        <div class="box-label">Suas pastas</div>
+        <div id="folders-list"></div>
         <div class="btn-row">
-          <button class="btn btn-primary" id="continue-btn">📂 Abrir esta pasta</button>
+          <button class="btn btn-primary" id="open-all-btn">📂 Abrir todas juntas</button>
+          <button class="btn btn-ghost"   id="add-folder-btn">+ Adicionar pasta</button>
         </div>
       </div>
-      <div class="sep-text">— ou escolha outra pasta —</div>
+      <div class="sep-text">— ou comece do zero —</div>
     </div>
 
     <div class="dropzone" id="dropzone">
       <div class="icon">📂</div>
-      <h2>Arraste a pasta aqui</h2>
+      <h2>Arraste uma pasta aqui</h2>
       <p>ou use um dos botões abaixo</p>
       <div class="btn-row" style="justify-content:center; margin-top:20px;">
         <button class="btn btn-primary" id="pick-folder-btn">Selecionar pasta</button>
@@ -347,6 +368,7 @@
         <div class="key-item"><kbd>← →</kbd> Foto anterior / próxima</div>
         <div class="key-item"><kbd>Espaço</kbd> Pausar / continuar</div>
         <div class="key-item"><kbd>C</kbd> Mostrar / ocultar legenda</div>
+        <div class="key-item"><kbd>+ −</kbd> Tamanho da legenda</div>
         <div class="key-item"><kbd>S</kbd> Ordem aleatória</div>
         <div class="key-item"><kbd>F</kbd> Tela cheia</div>
         <div class="key-item"><kbd>Esc</kbd> Sair do slideshow</div>
@@ -379,7 +401,8 @@
     <div class="btn-row" style="margin-top:0">
       <button class="btn btn-primary" id="play-btn">▶ Iniciar slideshow</button>
       <button class="btn btn-ghost"   id="shuffle-btn">⇄ Aleatório</button>
-      <button class="btn btn-ghost"   id="back-btn">← Nova pasta</button>
+      <button class="btn btn-ghost"   id="add-folder-review-btn">+ Adicionar pasta</button>
+      <button class="btn btn-ghost"   id="back-btn">← Início</button>
     </div>
   </div>
   <div class="photo-grid" id="photo-grid"></div>
@@ -402,6 +425,8 @@
     <div class="pc-divider"></div>
 
     <button class="pc-btn" id="pc-caption" title="Legenda (C)">𝗧</button>
+    <button class="pc-btn small" id="pc-cap-smaller" title="Diminuir legenda (−)">A−</button>
+    <button class="pc-btn small" id="pc-cap-bigger" title="Aumentar legenda (+)">A+</button>
     <button class="pc-btn dimmed" id="pc-shuffle" title="Aleatório (S)">⇄</button>
 
     <div class="pc-speed">
@@ -422,11 +447,13 @@
 //  STATE
 // ═══════════════════════════════════════════════════════
 let apiKey = localStorage.getItem('slideshow_apikey') || '';
-let photos  = [];   // [{file, url, name, year, city, country, caption}]
+let photos  = [];   // [{file, url, name, year, month, city, country, caption, capScale}]
 let reviewPage  = 0;
+let savedHandles = [];     // FileSystemDirectoryHandle[] persisted in IndexedDB
+let pendingAppend = false; // for the webkitdirectory fallback
 const PAGE_SIZE = 48;
 const BATCH     = 50;
-let savedDirHandle = null;  // FileSystemDirectoryHandle persisted in IndexedDB
+const MIN_SCALE = 0.5, MAX_SCALE = 2.5;
 
 // Player state
 let order     = [];
@@ -468,7 +495,7 @@ async function dbSet(key, val) {
 }
 
 // ═══════════════════════════════════════════════════════
-//  CAPTION CACHE (localStorage)
+//  CAPTION + SIZE CACHES (localStorage, keyed by filename)
 // ═══════════════════════════════════════════════════════
 function loadCaptionCache() {
   try { return JSON.parse(localStorage.getItem('slideshow_captions') || '{}'); }
@@ -478,11 +505,26 @@ function saveCaptionCache(cache) {
   try { localStorage.setItem('slideshow_captions', JSON.stringify(cache)); }
   catch (e) { console.warn('Caption cache save failed:', e); }
 }
-// Persist current photos captions into cache (call before leaving review screen)
+function loadSizeCache() {
+  try { return JSON.parse(localStorage.getItem('slideshow_sizes') || '{}'); }
+  catch { return {}; }
+}
+function saveSizeCache(cache) {
+  try { localStorage.setItem('slideshow_sizes', JSON.stringify(cache)); }
+  catch (e) { console.warn('Size cache save failed:', e); }
+}
 function flushCaptionsToCache() {
   const cache = loadCaptionCache();
   photos.forEach(p => { if (p.caption) cache[p.file.name] = p.caption; });
   saveCaptionCache(cache);
+}
+function setPhotoScale(idx, scale) {
+  scale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, Math.round(scale * 10) / 10));
+  photos[idx].capScale = scale;
+  const c = loadSizeCache();
+  c[photos[idx].file.name] = scale;
+  saveSizeCache(c);
+  return scale;
 }
 
 // ═══════════════════════════════════════════════════════
@@ -492,7 +534,6 @@ function show(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
 }
-
 function showUploadError(msg) {
   const el = document.getElementById('upload-error');
   el.textContent = msg;
@@ -501,17 +542,60 @@ function showUploadError(msg) {
 function hideUploadError() {
   document.getElementById('upload-error').style.display = 'none';
 }
-
-// Update upload screen to reflect current state
 function updateUploadUI() {
   const memSec = document.getElementById('in-memory-section');
   if (photos.length > 0) {
-    document.getElementById('in-memory-label').textContent =
-      `${photos.length} fotos carregadas`;
+    document.getElementById('in-memory-label').textContent = `${photos.length} fotos carregadas`;
     memSec.style.display = 'block';
   } else {
     memSec.style.display = 'none';
   }
+  renderFoldersList();
+}
+
+// ═══════════════════════════════════════════════════════
+//  SAVED FOLDERS (album)
+// ═══════════════════════════════════════════════════════
+async function loadSavedHandles() {
+  try {
+    let arr = await dbGet('dirHandles');
+    if (!arr) {
+      // migrate the old single-folder key
+      const single = await dbGet('dirHandle');
+      arr = single ? [single] : [];
+      if (single) await dbSet('dirHandles', arr);
+    }
+    savedHandles = arr || [];
+  } catch (e) {
+    console.warn('Could not read IndexedDB:', e);
+    savedHandles = [];
+  }
+}
+async function persistHandles() {
+  try { await dbSet('dirHandles', savedHandles); }
+  catch (e) { console.warn('IndexedDB save failed:', e); }
+}
+function renderFoldersList() {
+  const sec  = document.getElementById('folders-section');
+  const list = document.getElementById('folders-list');
+  if (!savedHandles.length) { sec.style.display = 'none'; return; }
+  sec.style.display = 'block';
+  list.innerHTML = '';
+  savedHandles.forEach((h, i) => {
+    const row = document.createElement('div');
+    row.className = 'folder-row';
+    row.innerHTML = `<span class="fr-name">📁 ${escHtml(h.name)}</span>
+                     <button class="folder-remove" data-i="${i}" title="Remover esta pasta da lista">✕</button>`;
+    list.appendChild(row);
+  });
+  list.querySelectorAll('.folder-remove').forEach(b => {
+    b.addEventListener('click', async e => {
+      const i = +e.target.dataset.i;
+      savedHandles.splice(i, 1);
+      await persistHandles();
+      renderFoldersList();
+    });
+  });
 }
 
 // ═══════════════════════════════════════════════════════
@@ -520,17 +604,8 @@ function updateUploadUI() {
 async function init() {
   if (!apiKey) { show('apikey-screen'); return; }
   show('upload-screen');
+  await loadSavedHandles();
   updateUploadUI();
-  try {
-    const handle = await dbGet('dirHandle');
-    if (handle) {
-      savedDirHandle = handle;
-      document.getElementById('continue-folder-name').textContent = handle.name;
-      document.getElementById('continue-section').style.display = 'block';
-    }
-  } catch (e) {
-    console.warn('Could not read IndexedDB:', e);
-  }
 }
 init();
 
@@ -550,123 +625,166 @@ document.getElementById('apikey-save-btn').addEventListener('click', () => {
   localStorage.setItem('slideshow_apikey', v);
   init();
 });
-
 document.getElementById('change-key-btn').addEventListener('click', () => {
   document.getElementById('apikey-input').value = '';
   show('apikey-screen');
 });
 
 // ═══════════════════════════════════════════════════════
-//  RESUME BUTTONS
+//  RESUME / FOLDER BUTTONS
 // ═══════════════════════════════════════════════════════
 document.getElementById('resume-review-btn').addEventListener('click', () => {
   if (photos.length > 0) { renderReview(); show('review-screen'); }
 });
-
-document.getElementById('continue-btn').addEventListener('click', async () => {
-  if (!savedDirHandle) return;
-  hideUploadError();
-  try {
-    let perm = await savedDirHandle.queryPermission({ mode: 'read' });
-    if (perm !== 'granted') {
-      perm = await savedDirHandle.requestPermission({ mode: 'read' });
-    }
-    if (perm !== 'granted') {
-      showUploadError('Permissão para ler a pasta foi negada. Tente selecionar a pasta novamente.');
-      return;
-    }
-    await loadFromHandle(savedDirHandle);
-  } catch (e) {
-    showUploadError('Erro ao acessar a pasta: ' + (e.message || e));
-  }
-});
+document.getElementById('open-all-btn').addEventListener('click', () => openAllFolders());
+document.getElementById('add-folder-btn').addEventListener('click', () => pickAndAddFolder(true));
+document.getElementById('add-folder-review-btn').addEventListener('click', () => pickAndAddFolder(true));
 
 // ═══════════════════════════════════════════════════════
-//  UPLOAD SCREEN — FOLDER / FILE SELECTION
+//  FILE SYSTEM ACCESS — read images + permissions
+// ═══════════════════════════════════════════════════════
+async function ensurePermission(handle) {
+  let p = await handle.queryPermission({ mode: 'read' });
+  if (p !== 'granted') p = await handle.requestPermission({ mode: 'read' });
+  return p === 'granted';
+}
+async function readImagesFromHandle(handle) {
+  if (!(await ensurePermission(handle)))
+    throw new Error('Permissão negada para a pasta "' + handle.name + '".');
+  const imgs = [];
+  for await (const [, fh] of handle) {
+    if (fh.kind !== 'file') continue;
+    const f = await fh.getFile();
+    if (f.type.startsWith('image/')) imgs.push(f);
+  }
+  return imgs;
+}
+
+// Pick a folder, remember it, and load it (append = add to current photos)
+async function pickAndAddFolder(append) {
+  hideUploadError();
+  if (!('showDirectoryPicker' in window)) {
+    // Fallback: webkitdirectory input (can't be remembered between sessions)
+    pendingAppend = append;
+    folderInput.click();
+    return;
+  }
+  let handle;
+  try {
+    handle = await window.showDirectoryPicker({ mode: 'read' });
+  } catch (e) {
+    if (e.name !== 'AbortError') showUploadError('Erro ao abrir a pasta: ' + (e.message || e));
+    return;
+  }
+
+  let imgs;
+  try {
+    imgs = await readImagesFromHandle(handle);
+  } catch (e) {
+    showUploadError(e.message || String(e));
+    return;
+  }
+  if (!imgs.length) { showUploadError('Nenhuma imagem encontrada nessa pasta.'); return; }
+
+  // Remember the folder (replace if a folder with the same name already exists)
+  const exists = savedHandles.some(h => h.name === handle.name);
+  savedHandles = exists ? savedHandles.map(h => h.name === handle.name ? handle : h)
+                        : [...savedHandles, handle];
+  await persistHandles();
+  renderFoldersList();
+
+  show('processing-screen');
+  buildPhotoObjects(imgs, { append: append && photos.length > 0 });
+  processPhotos(true);
+}
+
+// Open every saved folder, combined into one slideshow
+async function openAllFolders() {
+  hideUploadError();
+  if (!savedHandles.length) return;
+  show('processing-screen');
+  document.getElementById('processing-label').textContent = 'Lendo arquivos das pastas…';
+  document.getElementById('progress-fill').style.width = '0%';
+  document.getElementById('progress-text').textContent = 'Aguarde…';
+
+  let all = [];
+  const failed = [];
+  for (const h of savedHandles) {
+    try { all = all.concat(await readImagesFromHandle(h)); }
+    catch (e) { console.warn(e); failed.push(h.name); }
+  }
+  if (!all.length) {
+    show('upload-screen');
+    showUploadError('Nenhuma imagem encontrada nas pastas salvas.' +
+      (failed.length ? ' Não consegui ler: ' + failed.join(', ') + '.' : ''));
+    return;
+  }
+  buildPhotoObjects(all, { append: false });
+  processPhotos(true);
+}
+
+// ═══════════════════════════════════════════════════════
+//  UPLOAD SCREEN — dropzone / file inputs
 // ═══════════════════════════════════════════════════════
 const folderInput = document.getElementById('folder-input');
 folderInput.setAttribute('webkitdirectory', '');
 
-document.getElementById('pick-folder-btn').addEventListener('click', async () => {
-  hideUploadError();
-  if ('showDirectoryPicker' in window) {
-    try {
-      const handle = await window.showDirectoryPicker({ mode: 'read' });
-      savedDirHandle = handle;
-      try { await dbSet('dirHandle', handle); } catch (e) { console.warn('IndexedDB save failed:', e); }
-      document.getElementById('continue-folder-name').textContent = handle.name;
-      document.getElementById('continue-section').style.display = 'block';
-      await loadFromHandle(handle);
-    } catch (e) {
-      if (e.name !== 'AbortError') showUploadError('Erro ao abrir a pasta: ' + (e.message || e));
-    }
-  } else {
-    folderInput.click();
-  }
-});
-
+document.getElementById('pick-folder-btn').addEventListener('click', () => pickAndAddFolder(false));
 document.getElementById('pick-files-btn').addEventListener('click', () => {
   hideUploadError();
   document.getElementById('files-input').click();
 });
 
-folderInput.addEventListener('change', e => handleFiles(Array.from(e.target.files)));
-document.getElementById('files-input').addEventListener('change', e => handleFiles(Array.from(e.target.files)));
+folderInput.addEventListener('change', e => {
+  const files = Array.from(e.target.files).filter(f => f.type.startsWith('image/'));
+  if (!files.length) { showUploadError('Nenhuma imagem encontrada.'); return; }
+  hideUploadError();
+  show('processing-screen');
+  buildPhotoObjects(files, { append: pendingAppend && photos.length > 0 });
+  pendingAppend = false;
+  processPhotos(true);
+});
+document.getElementById('files-input').addEventListener('change', e => {
+  const files = Array.from(e.target.files).filter(f => f.type.startsWith('image/'));
+  if (!files.length) { showUploadError('Nenhuma imagem encontrada.'); return; }
+  hideUploadError();
+  show('processing-screen');
+  buildPhotoObjects(files, { append: false });
+  processPhotos(true);
+});
 
-// Drag & drop
+// Drag & drop (one folder/group at a time)
 const dz = document.getElementById('dropzone');
 dz.addEventListener('dragover',  e => { e.preventDefault(); dz.classList.add('over'); });
 dz.addEventListener('dragleave', () => dz.classList.remove('over'));
 dz.addEventListener('drop', e => {
-  e.preventDefault(); dz.classList.remove('over');
-  hideUploadError();
-  handleFiles(Array.from(e.dataTransfer.files));
+  e.preventDefault(); dz.classList.remove('over'); hideUploadError();
+  const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+  if (!files.length) { showUploadError('Nenhuma imagem encontrada.'); return; }
+  show('processing-screen');
+  buildPhotoObjects(files, { append: false });
+  processPhotos(true);
 });
 
-async function loadFromHandle(handle) {
-  show('processing-screen');
-  document.getElementById('processing-label').textContent = 'Lendo arquivos da pasta…';
-  document.getElementById('progress-fill').style.width = '0%';
-  document.getElementById('progress-text').textContent = 'Aguarde…';
-
-  const imgs = [];
-  try {
-    for await (const [, fh] of handle) {
-      if (fh.kind !== 'file') continue;
-      const f = await fh.getFile();
-      if (f.type.startsWith('image/')) imgs.push(f);
-    }
-  } catch (e) {
-    show('upload-screen');
-    showUploadError('Erro ao ler a pasta: ' + (e.message || e));
-    return;
+// Build photo objects, applying cached sizes, optionally appending + de-duping by filename
+function buildPhotoObjects(files, { append }) {
+  if (!append) {
+    photos.forEach(p => URL.revokeObjectURL(p.url));
+    photos = [];
   }
-
-  if (imgs.length === 0) {
-    show('upload-screen');
-    showUploadError('Nenhuma imagem encontrada nessa pasta.');
-    return;
-  }
-  imgs.sort((a, b) => a.name.localeCompare(b.name));
-  handleFiles(imgs, true /* already on processing screen */);
-}
-
-function handleFiles(files, alreadyOnProcessing) {
-  const imgs = files.filter(f => f.type.startsWith('image/')).sort((a,b) => a.name.localeCompare(b.name));
-  if (imgs.length === 0) {
-    showUploadError('Nenhuma imagem encontrada. Selecione uma pasta com fotos (JPG, PNG, etc).');
-    return;
-  }
-  hideUploadError();
-  // Revoke previous object URLs
-  photos.forEach(p => URL.revokeObjectURL(p.url));
-  photos = imgs.map(f => ({
-    file: f,
-    url: URL.createObjectURL(f),
-    name: f.name.replace(/\.[^.]+$/, ''),
-    year: null, month: null, city: null, country: null, caption: ''
-  }));
-  processPhotos(alreadyOnProcessing);
+  const existing = new Set(photos.map(p => p.file.name));
+  const sizeCache = loadSizeCache();
+  files.slice().sort((a, b) => a.name.localeCompare(b.name)).forEach(f => {
+    if (existing.has(f.name)) return;   // skip duplicates across folders
+    existing.add(f.name);
+    photos.push({
+      file: f,
+      url: URL.createObjectURL(f),
+      name: f.name.replace(/\.[^.]+$/, ''),
+      year: null, month: null, city: null, country: null, caption: '',
+      capScale: sizeCache[f.name] || 1
+    });
+  });
 }
 
 // ═══════════════════════════════════════════════════════
@@ -696,10 +814,9 @@ async function processPhotos(alreadyOnProcessing) {
   });
 
   if (uncachedIdxs.length === 0) {
-    // All captions already cached — skip Claude entirely
     document.getElementById('progress-fill').style.width = '100%';
     document.getElementById('progress-text').textContent = 'Todas as legendas já estavam salvas!';
-    await sleep(600);
+    await sleep(500);
     reviewPage = 0;
     renderReview();
     show('review-screen');
@@ -714,7 +831,7 @@ async function processPhotos(alreadyOnProcessing) {
 
   let done = 0;
   for (let bi = 0; bi < batches.length; bi++) {
-    const batch = batches[bi];  // global photo indices
+    const batch = batches[bi];                       // global photo indices
     const filenames = batch.map(gi => photos[gi].name);
 
     try {
@@ -828,13 +945,18 @@ function renderReview() {
     card.innerHTML = `
       <div class="photo-thumb"><img src="${p.url}" loading="lazy" /></div>
       <input class="photo-caption" type="text" value="${escHtml(captionToText(p))}" placeholder="sem legenda" data-idx="${globalIdx}" />
+      <div class="cap-size">
+        <span class="cs-label">Tamanho</span>
+        <button class="cs-dec" data-idx="${globalIdx}" title="Menor">A−</button>
+        <span class="cs-val" data-idx="${globalIdx}">${Math.round((p.capScale || 1) * 100)}%</span>
+        <button class="cs-inc" data-idx="${globalIdx}" title="Maior">A+</button>
+      </div>
     `;
     grid.appendChild(card);
   });
 
   grid.querySelectorAll('.photo-caption').forEach(inp => {
     inp.addEventListener('change', e => {
-      // On change store plain text; also update cache
       const idx = +e.target.dataset.idx;
       photos[idx].caption = e.target.value;
       const cache = loadCaptionCache();
@@ -842,6 +964,8 @@ function renderReview() {
       saveCaptionCache(cache);
     });
   });
+  grid.querySelectorAll('.cs-dec').forEach(b => b.addEventListener('click', e => bumpScale(+e.target.dataset.idx, -0.1)));
+  grid.querySelectorAll('.cs-inc').forEach(b => b.addEventListener('click', e => bumpScale(+e.target.dataset.idx, +0.1)));
 
   const total = Math.ceil(photos.length / PAGE_SIZE);
   const pag = document.getElementById('pagination');
@@ -850,11 +974,16 @@ function renderReview() {
        <span>Página ${reviewPage + 1} de ${total}</span>
        <button id="pag-next" ${reviewPage >= total - 1 ? 'disabled' : ''}>Próxima →</button>`
     : '';
-
   if (total > 1) {
     pag.querySelector('#pag-prev')?.addEventListener('click', () => { reviewPage--; renderReview(); window.scrollTo(0,0); });
     pag.querySelector('#pag-next')?.addEventListener('click', () => { reviewPage++; renderReview(); window.scrollTo(0,0); });
   }
+}
+
+function bumpScale(idx, delta) {
+  const newScale = setPhotoScale(idx, (photos[idx].capScale || 1) + delta);
+  const valEl = document.querySelector(`.cs-val[data-idx="${idx}"]`);
+  if (valEl) valEl.textContent = Math.round(newScale * 100) + '%';
 }
 
 function escHtml(s) { return s.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
@@ -878,6 +1007,11 @@ const clockEl    = document.getElementById('player-clock');
 const counterEl  = document.getElementById('player-counter');
 const fillEl     = document.getElementById('player-progress-fill');
 const controlsEl = document.getElementById('player-controls');
+
+function applyCapSize(p) {
+  capText.style.fontSize = `calc(clamp(1.8rem, 4.5vw, 4.2rem) * ${p.capScale || 1})`;
+}
+function applyCurrentCapSize() { applyCapSize(photos[order[pos]]); }
 
 function startPlayer(shuffle) {
   isShuffle = shuffle;
@@ -910,6 +1044,7 @@ function displayPhoto(immediate) {
     imgEl.src = p.url;
     imgEl.style.animation = `${kbName} ${totalSpeed}s ease-in-out both`;
     capText.innerHTML = renderCaption(p);
+    applyCapSize(p);
     capWrap.style.opacity = renderCaption(p) && showCap ? '1' : '0';
   } else {
     imgEl.style.opacity = '0';
@@ -920,6 +1055,7 @@ function displayPhoto(immediate) {
       void imgEl.offsetWidth;
       imgEl.style.animation = `${kbName} ${totalSpeed}s ease-in-out both`;
       capText.innerHTML = renderCaption(p);
+      applyCapSize(p);
       imgEl.style.opacity = '1';
       capWrap.style.opacity = renderCaption(p) && showCap ? '1' : '0';
     }, 700);
@@ -986,6 +1122,15 @@ document.getElementById('pc-caption').addEventListener('click', e => {
   capWrap.style.opacity = renderCaption(p) && showCap ? '1' : '0';
 });
 
+document.getElementById('pc-cap-smaller').addEventListener('click', e => { e.stopPropagation(); adjustCurrentScale(-0.1); });
+document.getElementById('pc-cap-bigger').addEventListener('click', e => { e.stopPropagation(); adjustCurrentScale(+0.1); });
+
+function adjustCurrentScale(delta) {
+  const gi = order[pos];
+  setPhotoScale(gi, (photos[gi].capScale || 1) + delta);
+  applyCurrentCapSize();
+}
+
 document.getElementById('pc-shuffle').addEventListener('click', e => {
   e.stopPropagation();
   isShuffle = !isShuffle;
@@ -1034,6 +1179,10 @@ document.addEventListener('keydown', e => {
       document.getElementById('pc-caption').classList.toggle('dimmed', !showCap);
       capWrap.style.opacity = renderCaption(photos[order[pos]]) && showCap ? '1' : '0';
       break;
+    case '+': case '=':
+      e.preventDefault(); adjustCurrentScale(+0.1); break;
+    case '-': case '_':
+      e.preventDefault(); adjustCurrentScale(-0.1); break;
     case 's': case 'S':
       isShuffle = !isShuffle;
       document.getElementById('pc-shuffle').classList.toggle('dimmed', !isShuffle);
