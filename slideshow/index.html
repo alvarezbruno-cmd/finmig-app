@@ -230,6 +230,7 @@
       <button class="btn btn-primary" id="play-all-btn" style="font-size:1.1rem; padding:15px 32px;" disabled>▶ Tocar tudo</button>
       <span id="home-msg"></span>
     </div>
+    <div id="app-version" style="margin-top:40px; color:var(--dim); font-size:.85rem; opacity:.6;"></div>
   </div>
 </div>
 
@@ -329,6 +330,7 @@
 // ═══════════════════════════════════════════════════
 //  STATE
 // ═══════════════════════════════════════════════════
+const APP_VERSION = 'v8 · 06/06';
 let apiKey = localStorage.getItem('slideshow_apikey') || '';
 
 // Collections: [{id, name, handles: [FileSystemDirectoryHandle]}]
@@ -924,6 +926,7 @@ document.getElementById('change-key-btn').addEventListener('click', ()=>{ docume
 document.getElementById('play-all-btn').addEventListener('click', playAll);
 
 async function init() {
+  document.getElementById('app-version').textContent = APP_VERSION;
   if (!apiKey) { show('apikey-screen'); return; }
   await loadCollections();
   renderHome();
