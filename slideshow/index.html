@@ -159,6 +159,9 @@
     .pagination button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
     .pagination button:disabled { opacity: .3; cursor: default; }
     .pagination span { color: var(--dim); font-size: 1rem; }
+    .pagination select { background: var(--surface); border: 2px solid var(--border); color: var(--text); border-radius: 8px; padding: 10px 14px; font-size: 1rem; font-weight: 700; cursor: pointer; }
+    .pagination select:hover { border-color: var(--accent); }
+    .pagination select:focus { outline: 3px solid var(--accent); outline-offset: 2px; }
 
     /* ══════════════════════════════
        PLAYER
@@ -330,7 +333,7 @@
 // ═══════════════════════════════════════════════════
 //  STATE
 // ═══════════════════════════════════════════════════
-const APP_VERSION = 'v8 · 06/06';
+const APP_VERSION = 'v9 · 06/06';
 let apiKey = localStorage.getItem('slideshow_apikey') || '';
 
 // Collections: [{id, name, handles: [FileSystemDirectoryHandle]}]
@@ -887,11 +890,16 @@ function renderReview() {
   grid.querySelectorAll('.cs-inc').forEach(b=>b.addEventListener('click',e=>bumpScale(+e.target.dataset.idx,+0.1)));
   const total=Math.ceil(photos.length/PAGE_SIZE);
   const pag=document.getElementById('pagination');
-  pag.innerHTML=total>1?`<button id="pag-prev" ${reviewPage===0?'disabled':''}>← Anterior</button><span>Página ${reviewPage+1} de ${total}</span><button id="pag-next" ${reviewPage>=total-1?'disabled':''}>Próxima →</button>`:'';
   if (total>1) {
+    const opts=Array.from({length:total},(_,n)=>`<option value="${n}" ${n===reviewPage?'selected':''}>Página ${n+1}</option>`).join('');
+    pag.innerHTML=`<button id="pag-prev" ${reviewPage===0?'disabled':''}>← Anterior</button>`
+      +`<select id="pag-select" title="Ir para a página">${opts}</select>`
+      +`<span>de ${total}</span>`
+      +`<button id="pag-next" ${reviewPage>=total-1?'disabled':''}>Próxima →</button>`;
     pag.querySelector('#pag-prev')?.addEventListener('click',()=>{reviewPage--;renderReview();window.scrollTo(0,0);});
     pag.querySelector('#pag-next')?.addEventListener('click',()=>{reviewPage++;renderReview();window.scrollTo(0,0);});
-  }
+    pag.querySelector('#pag-select')?.addEventListener('change',e=>{reviewPage=+e.target.value;renderReview();window.scrollTo(0,0);});
+  } else { pag.innerHTML=''; }
 }
 
 function bumpScale(idx,delta) {
