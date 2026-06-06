@@ -335,7 +335,7 @@
 // ═══════════════════════════════════════════════════
 //  STATE
 // ═══════════════════════════════════════════════════
-const APP_VERSION = 'v14 · 06/06';
+const APP_VERSION = 'v15 · 06/06';
 let apiKey = localStorage.getItem('slideshow_apikey') || '';
 
 // Collections: [{id, name, handles: [FileSystemDirectoryHandle]}]
@@ -619,19 +619,28 @@ async function ensurePermission(handle) {
   if (p !== 'granted') p = await handle.requestPermission({ mode: 'readwrite' });
   return p === 'granted';
 }
-// Inspects the first bytes of a file to recognise an image the browser can
-// display, even when its extension/MIME is missing or wrong. Returns the MIME
-// type if displayable, otherwise null.
-async function sniffImageType(file) {
+// Inspects the first bytes of a file. Returns { mime } when it's an image the
+// browser can display (even with a wrong/missing extension), or { label } with
+// a human description of the format when it isn't displayable.
+async function inspectFile(file) {
   try {
     const b = new Uint8Array(await file.slice(0, 16).arrayBuffer());
-    if (b[0]===0xFF && b[1]===0xD8 && b[2]===0xFF) return 'image/jpeg';
-    if (b[0]===0x89 && b[1]===0x50 && b[2]===0x4E && b[3]===0x47) return 'image/png';
-    if (b[0]===0x47 && b[1]===0x49 && b[2]===0x46 && b[3]===0x38) return 'image/gif';
-    if (b[0]===0x42 && b[1]===0x4D) return 'image/bmp';
-    if (b[0]===0x52 && b[1]===0x49 && b[2]===0x46 && b[3]===0x46 && b[8]===0x57 && b[9]===0x45 && b[10]===0x42 && b[11]===0x50) return 'image/webp';
-    return null;
-  } catch { return null; }
+    // Displayable formats
+    if (b[0]===0xFF && b[1]===0xD8 && b[2]===0xFF) return { mime:'image/jpeg' };
+    if (b[0]===0x89 && b[1]===0x50 && b[2]===0x4E && b[3]===0x47) return { mime:'image/png' };
+    if (b[0]===0x47 && b[1]===0x49 && b[2]===0x46 && b[3]===0x38) return { mime:'image/gif' };
+    if (b[0]===0x42 && b[1]===0x4D) return { mime:'image/bmp' };
+    if (b[0]===0x52 && b[1]===0x49 && b[2]===0x46 && b[3]===0x46 && b[8]===0x57 && b[9]===0x45 && b[10]===0x42 && b[11]===0x50) return { mime:'image/webp' };
+    // Identifiable but not displayable in the browser
+    if (b[4]===0x66 && b[5]===0x74 && b[6]===0x79 && b[7]===0x70) return { label:'HEIC/HEIF (foto de iPhone)' };
+    const tiffLE = b[0]===0x49 && b[1]===0x49 && b[2]===0x2A && b[3]===0x00;
+    const tiffBE = b[0]===0x4D && b[1]===0x4D && b[2]===0x00 && b[3]===0x2A;
+    if (tiffLE && b[8]===0x43 && b[9]===0x52) return { label:'RAW Canon (CR2)' };
+    if (tiffLE || tiffBE) return { label:'TIFF ou RAW de câmera' };
+    if (b[0]===0x25 && b[1]===0x50 && b[2]===0x44 && b[3]===0x46) return { label:'PDF (não é imagem)' };
+    const hex = Array.from(b.slice(0,4)).map(x=>x.toString(16).padStart(2,'0')).join(' ');
+    return { label:'formato desconhecido ['+hex+']' };
+  } catch { return { label:'não foi possível ler' }; }
 }
 
 // Extensions worth inspecting by content when the OS reports no image MIME.
@@ -654,9 +663,9 @@ async function readImagesFromHandle(handle, onFile) {
     // No image MIME. Only inspect bytes if the extension is missing or
     // image-like — never read bytes of videos/docs (avoids cloud downloads).
     if (ext !== '' && !IMAGE_EXTS.has(ext)) continue;
-    const sniffed = await sniffImageType(f);
-    if (sniffed) { imgs.push(new File([f], f.name, { type: sniffed, lastModified: f.lastModified })); if (onFile) onFile(); }
-    else skipped.push(name);
+    const r = await inspectFile(f);
+    if (r.mime) { imgs.push(new File([f], f.name, { type: r.mime, lastModified: f.lastModified })); if (onFile) onFile(); }
+    else skipped.push({ name, label: r.label });
   }
   return { files: imgs, legendas, subdirs, skipped };
 }
@@ -939,9 +948,10 @@ function reviewStatsHtml() {
   let statsHtml = `<span class="ok">${parsed}</span> com legenda · <span class="${photos.length-parsed>0?'warn':''}">${photos.length-parsed}</span> sem legenda · ${photos.length} fotos`;
   if (processingSet.size) statsHtml += ` · <span class="accent" style="color:var(--accent)">${processingSet.size} em processamento</span>`;
   if (skippedFiles.length) {
-    const list = skippedFiles.slice(0,20).join(', ') + (skippedFiles.length>20 ? `… (+${skippedFiles.length-20})` : '');
-    statsHtml += `<br><span class="warn">⚠ ${skippedFiles.length} arquivo(s) não puderam ser lidos como imagem</span>`
-      + ` <span style="color:var(--dim);font-size:.85rem;">— provavelmente HEIC (foto de iPhone) ou formato não suportado. Converta para JPEG para incluí-los: ${escHtml(list)}</span>`;
+    const list = skippedFiles.slice(0,30).map(s=>`${escHtml(s.name)} <em style="color:var(--accent);font-style:normal">(${escHtml(s.label)})</em>`).join('; ')
+      + (skippedFiles.length>30 ? `… (+${skippedFiles.length-30})` : '');
+    statsHtml += `<br><span class="warn">⚠ ${skippedFiles.length} arquivo(s) não puderam ser exibidos</span>`
+      + ` <span style="color:var(--dim);font-size:.85rem;">— precisam ser convertidos para JPEG. Formatos identificados: ${list}</span>`;
   }
   return statsHtml;
 }
