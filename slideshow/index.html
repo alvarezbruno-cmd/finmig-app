@@ -333,7 +333,7 @@
 // ═══════════════════════════════════════════════════
 //  STATE
 // ═══════════════════════════════════════════════════
-const APP_VERSION = 'v10 · 06/06';
+const APP_VERSION = 'v11 · 06/06';
 let apiKey = localStorage.getItem('slideshow_apikey') || '';
 
 // Collections: [{id, name, handles: [FileSystemDirectoryHandle]}]
@@ -349,6 +349,7 @@ let photos = [];
 let removedByFolder = new Map();
 let pendingAutoPlay = false;
 let reviewPage = 0;
+let skippedFiles = [];          // names of files that couldn't be read as images
 const PAGE_SIZE = 48, BATCH = 50;
 const MIN_SCALE = 0.5, MAX_SCALE = 2.5;
 
@@ -615,30 +616,50 @@ async function ensurePermission(handle) {
   if (p !== 'granted') p = await handle.requestPermission({ mode: 'readwrite' });
   return p === 'granted';
 }
+// Inspects the first bytes of a file to recognise an image the browser can
+// display, even when its extension/MIME is missing or wrong. Returns the MIME
+// type if displayable, otherwise null.
+async function sniffImageType(file) {
+  try {
+    const b = new Uint8Array(await file.slice(0, 16).arrayBuffer());
+    if (b[0]===0xFF && b[1]===0xD8 && b[2]===0xFF) return 'image/jpeg';
+    if (b[0]===0x89 && b[1]===0x50 && b[2]===0x4E && b[3]===0x47) return 'image/png';
+    if (b[0]===0x47 && b[1]===0x49 && b[2]===0x46 && b[3]===0x38) return 'image/gif';
+    if (b[0]===0x42 && b[1]===0x4D) return 'image/bmp';
+    if (b[0]===0x52 && b[1]===0x49 && b[2]===0x46 && b[3]===0x46 && b[8]===0x57 && b[9]===0x45 && b[10]===0x42 && b[11]===0x50) return 'image/webp';
+    return null;
+  } catch { return null; }
+}
+
 // Reads images directly inside one folder (no recursion).
 async function readImagesFromHandle(handle) {
   if (!(await ensurePermission(handle))) throw new Error('Permissão negada para "' + handle.name + '".');
-  const imgs = []; let legendas = null; const subdirs = [];
+  const imgs = []; let legendas = null; const subdirs = []; const skipped = [];
   for await (const [name, fh] of handle) {
     if (fh.kind === 'directory') { subdirs.push(fh); continue; }
     if (fh.kind !== 'file') continue;
     if (name === 'legendas.json') { try { legendas = JSON.parse(await (await fh.getFile()).text()); } catch {} continue; }
     const f = await fh.getFile();
-    if (f.type.startsWith('image/')) imgs.push(f);
+    if (f.type.startsWith('image/')) { imgs.push(f); continue; }
+    // MIME not recognised — inspect the file's content signature.
+    const sniffed = await sniffImageType(f);
+    if (sniffed) imgs.push(new File([f], f.name, { type: sniffed, lastModified: f.lastModified }));
+    else skipped.push(name);
   }
-  return { files: imgs, legendas, subdirs };
+  return { files: imgs, legendas, subdirs, skipped };
 }
 
 // Reads a folder AND all its subfolders recursively, returning one group
 // per folder that contains images. Each group keeps its own folder handle
 // and legendas.json so captions stay scoped to the right folder.
-async function collectGroups(handle, acc, depth) {
-  acc = acc || []; depth = depth || 0;
+async function collectGroups(handle, acc, skipped, depth) {
+  acc = acc || []; skipped = skipped || []; depth = depth || 0;
   let r;
   try { r = await readImagesFromHandle(handle); }
   catch (e) { if (depth === 0) throw e; return acc; }
   if (r.files.length) acc.push({ files: r.files, handle, legendas: r.legendas });
-  for (const sub of r.subdirs) await collectGroups(sub, acc, depth + 1);
+  if (r.skipped.length) skipped.push(...r.skipped);
+  for (const sub of r.subdirs) await collectGroups(sub, acc, skipped, depth + 1);
   return acc;
 }
 async function writeLegendasJson(handle, data) {
@@ -657,8 +678,9 @@ async function openCollection(col, pendingFiles) {
 
   const groups = [];
   const failed = [];
+  skippedFiles = [];
   for (const h of col.handles) {
-    try { await collectGroups(h, groups); }
+    try { await collectGroups(h, groups, skippedFiles); }
     catch(e) { failed.push(h.name); }
   }
   if (pendingFiles && pendingFiles.length) {
@@ -681,9 +703,10 @@ async function playAll() {
   document.getElementById('progress-fill').style.width = '0%';
   document.getElementById('progress-text').textContent = 'Aguarde…';
   const groups = [];
+  skippedFiles = [];
   for (const col of collections) {
     for (const h of col.handles) {
-      try { await collectGroups(h, groups); }
+      try { await collectGroups(h, groups, skippedFiles); }
       catch {}
     }
   }
@@ -866,8 +889,13 @@ function removePhoto(idx) {
 
 function renderReview() {
   const parsed=photos.filter(p=>p.caption).length;
-  document.getElementById('review-stats').innerHTML =
-    `<span class="ok">${parsed}</span> com legenda · <span class="${photos.length-parsed>0?'warn':''}">${photos.length-parsed}</span> sem legenda · ${photos.length} fotos`;
+  let statsHtml = `<span class="ok">${parsed}</span> com legenda · <span class="${photos.length-parsed>0?'warn':''}">${photos.length-parsed}</span> sem legenda · ${photos.length} fotos`;
+  if (skippedFiles.length) {
+    const list = skippedFiles.slice(0,20).join(', ') + (skippedFiles.length>20 ? `… (+${skippedFiles.length-20})` : '');
+    statsHtml += `<br><span class="warn">⚠ ${skippedFiles.length} arquivo(s) não puderam ser lidos como imagem</span>`
+      + ` <span style="color:var(--dim);font-size:.85rem;">— provavelmente HEIC (foto de iPhone) ou formato não suportado. Converta para JPEG para incluí-los: ${escHtml(list)}</span>`;
+  }
+  document.getElementById('review-stats').innerHTML = statsHtml;
   const grid=document.getElementById('photo-grid');
   grid.innerHTML='';
   photos.slice(reviewPage*PAGE_SIZE,(reviewPage+1)*PAGE_SIZE).forEach((p,i)=>{
