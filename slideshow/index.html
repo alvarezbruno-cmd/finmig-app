@@ -302,6 +302,7 @@
 <div id="player">
   <div id="player-progress"><div id="player-progress-fill" style="width:0%"></div></div>
   <img id="player-img" src="" alt="" />
+  <div id="player-bg-status" style="display:none; position:absolute; top:24px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,.7); color:#fff; padding:8px 16px; border-radius:20px; font-size:.95rem; font-weight:700; z-index:5;"></div>
   <div id="player-bottom">
   <div id="player-caption"><p id="player-caption-text"></p></div>
   <div id="player-controls">
@@ -334,7 +335,7 @@
 // ═══════════════════════════════════════════════════
 //  STATE
 // ═══════════════════════════════════════════════════
-const APP_VERSION = 'v13 · 06/06';
+const APP_VERSION = 'v14 · 06/06';
 let apiKey = localStorage.getItem('slideshow_apikey') || '';
 
 // Collections: [{id, name, handles: [FileSystemDirectoryHandle]}]
@@ -351,6 +352,7 @@ let removedByFolder = new Map();
 let pendingAutoPlay = false;
 let reviewPage = 0;
 let skippedFiles = [];          // names of files that couldn't be read as images
+let processingSet = new Set();  // indices of photos still being captioned in background
 const PAGE_SIZE = 48, BATCH = 50;
 const MIN_SCALE = 0.5, MAX_SCALE = 2.5;
 
@@ -818,6 +820,7 @@ async function processPhotos(alreadyOnProcessing) {
 let bgRunning = false;
 async function processInBackground(uncachedIdxs, captionCache) {
   bgRunning = true; processingAborted = false;
+  processingSet = new Set(uncachedIdxs);
   const total = uncachedIdxs.length;
   const batches = [];
   for (let i=0; i<total; i+=BATCH) batches.push(uncachedIdxs.slice(i,i+BATCH));
@@ -835,6 +838,7 @@ async function processInBackground(uncachedIdxs, captionCache) {
           photos[gi].year=r.year||null; photos[gi].month=r.month||null;
           photos[gi].city=r.city||null; photos[gi].country=r.country||null;
           photos[gi].caption=caption; captionCache[photos[gi].file.name]=caption;
+          processingSet.delete(gi);
           updateCaptionField(gi);
         }
       });
@@ -846,6 +850,11 @@ async function processInBackground(uncachedIdxs, captionCache) {
     if (bi<batches.length-1) await sleep(400);
   }
   bgRunning = false;
+  processingSet.clear();
+  // Refresh grid so stale "gerando…" placeholders clear, unless user is editing.
+  if (document.getElementById('review-screen').classList.contains('active')
+      && !document.activeElement?.classList.contains('photo-caption')) renderReview();
+  else refreshReviewStats();
   // Write legendas.json into the folders once at the end (avoids hammering
   // Drive when each photo lives in its own folder).
   await saveLegendasToFolders();
@@ -855,11 +864,13 @@ async function processInBackground(uncachedIdxs, captionCache) {
 
 function setBgStatus(text, showStop) {
   const el = document.getElementById('bg-status');
-  if (!text) { el.style.display='none'; el.innerHTML=''; return; }
+  const pel = document.getElementById('player-bg-status');
+  if (!text) { el.style.display='none'; el.innerHTML=''; if (pel) pel.style.display='none'; return; }
   el.style.display='block';
   el.innerHTML = `<span class="spinning" style="display:${showStop?'inline-block':'none'}">⚙️</span> ${escHtml(text)}`
     + (showStop ? ` <button id="bg-stop" style="margin-left:10px; background:transparent; border:2px solid var(--border); color:var(--text); border-radius:6px; padding:4px 12px; cursor:pointer; font-weight:700;">✕ Parar</button>` : '');
   if (showStop) document.getElementById('bg-stop')?.addEventListener('click', () => { processingAborted = true; });
+  if (pel) { pel.style.display = showStop ? 'block' : 'none'; pel.innerHTML = `<span class="spinning">⚙️</span> ${escHtml(text)}`; }
 }
 
 // Updates a single caption input on the review grid if it's currently visible
@@ -926,6 +937,7 @@ function removePhoto(idx) {
 function reviewStatsHtml() {
   const parsed=photos.filter(p=>p.caption).length;
   let statsHtml = `<span class="ok">${parsed}</span> com legenda · <span class="${photos.length-parsed>0?'warn':''}">${photos.length-parsed}</span> sem legenda · ${photos.length} fotos`;
+  if (processingSet.size) statsHtml += ` · <span class="accent" style="color:var(--accent)">${processingSet.size} em processamento</span>`;
   if (skippedFiles.length) {
     const list = skippedFiles.slice(0,20).join(', ') + (skippedFiles.length>20 ? `… (+${skippedFiles.length-20})` : '');
     statsHtml += `<br><span class="warn">⚠ ${skippedFiles.length} arquivo(s) não puderam ser lidos como imagem</span>`
@@ -947,7 +959,7 @@ function renderReview() {
         <img src="${p.url}" loading="lazy" />
         <button class="btn-remove-photo" data-idx="${gi}">✕</button>
       </div>
-      <input class="photo-caption" type="text" value="${escHtml(captionToText(p))}" placeholder="sem legenda" data-idx="${gi}" />
+      <input class="photo-caption" type="text" value="${escHtml(captionToText(p))}" placeholder="${processingSet.has(gi)?'⚙️ gerando…':'sem legenda'}" data-idx="${gi}" />
       <div class="cap-size">
         <span class="cs-label">Tamanho</span>
         <button class="cs-dec" data-idx="${gi}">A−</button>
