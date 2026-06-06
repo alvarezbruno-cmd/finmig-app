@@ -166,14 +166,15 @@
     #player { position: fixed; inset: 0; background: #000; z-index: 9999; overflow: hidden; display: none; }
     #player.active { display: block; }
     #player-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; transition: opacity .7s ease; }
-    #player-caption { position: absolute; bottom: 0; left: 0; right: 0; padding: 18px 36px 20px; background: rgba(0,0,0,.72); transition: opacity .7s ease; }
+    #player-bottom { position: absolute; bottom: 0; left: 0; right: 0; display: flex; flex-direction: column; }
+    #player-caption { padding: 18px 36px 16px; background: rgba(0,0,0,.72); transition: opacity .7s ease; }
     #player-caption p { color: #fff; text-align: left; font-weight: 700; letter-spacing: .01em; font-size: clamp(1.8rem, 4.5vw, 4.2rem); line-height: 1.1; }
     #player-caption p .cap-country { color: rgba(255,255,255,.55); font-weight: 400; }
     #player-clock { position: absolute; top: 28px; right: 36px; color: rgba(255,255,255,.3); font-size: clamp(.9rem, 1.6vw, 1.5rem); font-variant-numeric: tabular-nums; pointer-events: none; }
     #player-counter { position: absolute; top: 28px; left: 36px; color: rgba(255,255,255,.25); font-size: clamp(.75rem, 1.2vw, 1rem); pointer-events: none; }
     #player-progress { position: absolute; top: 0; left: 0; right: 0; height: 2px; background: rgba(255,255,255,.1); }
     #player-progress-fill { height: 100%; background: rgba(255,255,255,.45); transition: width .5s ease; }
-    #player-controls { position: absolute; bottom: 0; left: 0; right: 0; display: flex; align-items: center; justify-content: center; gap: 10px; padding: 24px 0 28px; background: linear-gradient(to top, rgba(0,0,0,.55) 0%, transparent 100%); transition: opacity .4s; flex-wrap: wrap; }
+    #player-controls { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 16px 0 24px; background: linear-gradient(to top, rgba(0,0,0,.55) 0%, transparent 100%); transition: opacity .4s; flex-wrap: wrap; }
     #player-controls.hidden { opacity: 0; pointer-events: none; }
     .pc-btn { background: rgba(0,0,0,.55); backdrop-filter: blur(8px); border: none; border-radius: 12px; color: rgba(255,255,255,.8); cursor: pointer; padding: 10px 18px; font-size: 1.1rem; transition: background .15s, color .15s; }
     .pc-btn:hover { background: rgba(0,0,0,.75); color: #fff; }
@@ -295,9 +296,8 @@
 <div id="player">
   <div id="player-progress"><div id="player-progress-fill" style="width:0%"></div></div>
   <img id="player-img" src="" alt="" />
+  <div id="player-bottom">
   <div id="player-caption"><p id="player-caption-text"></p></div>
-  <div id="player-clock"></div>
-  <div id="player-counter"></div>
   <div id="player-controls">
     <button class="pc-btn large" id="pc-prev">‹</button>
     <button class="pc-btn" id="pc-playpause">⏸</button>
@@ -316,6 +316,9 @@
     <button class="pc-btn" id="pc-fullscreen">⛶</button>
     <button class="pc-btn danger" id="pc-exit">✕</button>
   </div>
+  </div><!-- /player-bottom -->
+  <div id="player-clock"></div>
+  <div id="player-counter"></div>
 </div>
 
 <input type="file" id="folder-input" multiple accept="image/*" style="display:none" />
