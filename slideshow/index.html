@@ -333,7 +333,7 @@
 // ═══════════════════════════════════════════════════
 //  STATE
 // ═══════════════════════════════════════════════════
-const APP_VERSION = 'v11 · 06/06';
+const APP_VERSION = 'v12 · 06/06';
 let apiKey = localStorage.getItem('slideshow_apikey') || '';
 
 // Collections: [{id, name, handles: [FileSystemDirectoryHandle]}]
@@ -631,19 +631,28 @@ async function sniffImageType(file) {
   } catch { return null; }
 }
 
+// Extensions worth inspecting by content when the OS reports no image MIME.
+// Anything clearly non-image (videos, docs…) is skipped without reading bytes,
+// so we never force a large cloud download just to peek.
+const IMAGE_EXTS = new Set(['jpg','jpeg','png','gif','webp','bmp','heic','heif','tif','tiff']);
+function fileExt(name) { const m = name.toLowerCase().match(/\.([^.]+)$/); return m ? m[1] : ''; }
+
 // Reads images directly inside one folder (no recursion).
-async function readImagesFromHandle(handle) {
+async function readImagesFromHandle(handle, onFile) {
   if (!(await ensurePermission(handle))) throw new Error('Permissão negada para "' + handle.name + '".');
   const imgs = []; let legendas = null; const subdirs = []; const skipped = [];
   for await (const [name, fh] of handle) {
     if (fh.kind === 'directory') { subdirs.push(fh); continue; }
     if (fh.kind !== 'file') continue;
     if (name === 'legendas.json') { try { legendas = JSON.parse(await (await fh.getFile()).text()); } catch {} continue; }
+    const ext = fileExt(name);
     const f = await fh.getFile();
-    if (f.type.startsWith('image/')) { imgs.push(f); continue; }
-    // MIME not recognised — inspect the file's content signature.
+    if (f.type.startsWith('image/')) { imgs.push(f); if (onFile) onFile(); continue; }
+    // No image MIME. Only inspect bytes if the extension is missing or
+    // image-like — never read bytes of videos/docs (avoids cloud downloads).
+    if (ext !== '' && !IMAGE_EXTS.has(ext)) continue;
     const sniffed = await sniffImageType(f);
-    if (sniffed) imgs.push(new File([f], f.name, { type: sniffed, lastModified: f.lastModified }));
+    if (sniffed) { imgs.push(new File([f], f.name, { type: sniffed, lastModified: f.lastModified })); if (onFile) onFile(); }
     else skipped.push(name);
   }
   return { files: imgs, legendas, subdirs, skipped };
@@ -652,14 +661,14 @@ async function readImagesFromHandle(handle) {
 // Reads a folder AND all its subfolders recursively, returning one group
 // per folder that contains images. Each group keeps its own folder handle
 // and legendas.json so captions stay scoped to the right folder.
-async function collectGroups(handle, acc, skipped, depth) {
+async function collectGroups(handle, acc, skipped, onFile, depth) {
   acc = acc || []; skipped = skipped || []; depth = depth || 0;
   let r;
-  try { r = await readImagesFromHandle(handle); }
+  try { r = await readImagesFromHandle(handle, onFile); }
   catch (e) { if (depth === 0) throw e; return acc; }
   if (r.files.length) acc.push({ files: r.files, handle, legendas: r.legendas });
   if (r.skipped.length) skipped.push(...r.skipped);
-  for (const sub of r.subdirs) await collectGroups(sub, acc, skipped, depth + 1);
+  for (const sub of r.subdirs) await collectGroups(sub, acc, skipped, onFile, depth + 1);
   return acc;
 }
 async function writeLegendasJson(handle, data) {
@@ -679,8 +688,11 @@ async function openCollection(col, pendingFiles) {
   const groups = [];
   const failed = [];
   skippedFiles = [];
+  let readCount = 0;
+  const progEl = document.getElementById('progress-text');
+  const onFile = () => { readCount++; if (readCount % 10 === 0) progEl.textContent = `Lendo… ${readCount} fotos encontradas`; };
   for (const h of col.handles) {
-    try { await collectGroups(h, groups, skippedFiles); }
+    try { await collectGroups(h, groups, skippedFiles, onFile); }
     catch(e) { failed.push(h.name); }
   }
   if (pendingFiles && pendingFiles.length) {
@@ -704,9 +716,12 @@ async function playAll() {
   document.getElementById('progress-text').textContent = 'Aguarde…';
   const groups = [];
   skippedFiles = [];
+  let readCount = 0;
+  const progEl = document.getElementById('progress-text');
+  const onFile = () => { readCount++; if (readCount % 10 === 0) progEl.textContent = `Lendo… ${readCount} fotos encontradas`; };
   for (const col of collections) {
     for (const h of col.handles) {
-      try { await collectGroups(h, groups, skippedFiles); }
+      try { await collectGroups(h, groups, skippedFiles, onFile); }
       catch {}
     }
   }
