@@ -371,6 +371,10 @@ async function dbSet(key,val) {
   const db = await openDB();
   return new Promise((res,rej) => { const r=db.transaction('kv','readwrite').objectStore('kv').put(val,key); r.onsuccess=()=>res(); r.onerror=()=>rej(r.error); });
 }
+async function dbDel(key) {
+  const db = await openDB();
+  return new Promise((res,rej) => { const r=db.transaction('kv','readwrite').objectStore('kv').delete(key); r.onsuccess=()=>res(); r.onerror=()=>rej(r.error); });
+}
 
 // ═══════════════════════════════════════════════════
 //  CAPTION / SIZE CACHE
@@ -393,19 +397,18 @@ function newId() { return Date.now().toString(36) + Math.random().toString(36).s
 async function loadCollections() {
   try {
     const meta = await dbGet('cols_meta');
-    if (meta && meta.length) {
+    if (meta !== undefined) {
+      // cols_meta exists (even if empty) — it's the source of truth.
       collections = await Promise.all(meta.map(async m => ({
         id: m.id, name: m.name,
         handles: (await dbGet('col_' + m.id)) || []
       })));
     } else {
-      // Migrate from old single-folder format
+      // First run on this device: migrate from old single-folder format.
       let old = await dbGet('dirHandles');
       if (!old) { const s = await dbGet('dirHandle'); old = s ? [s] : []; }
-      if (old.length) {
-        collections = old.map(h => ({ id: newId(), name: h.name, handles: [h] }));
-        await saveCollections();
-      }
+      collections = old.length ? old.map(h => ({ id: newId(), name: h.name, handles: [h] })) : [];
+      await saveCollections();
     }
   } catch { collections = []; }
 }
@@ -444,7 +447,8 @@ function renderHome() {
     card.querySelector('.edit').addEventListener('click', e => { e.stopPropagation(); openCollectionEditor(col); });
     card.querySelector('.del').addEventListener('click', async e => {
       e.stopPropagation();
-      collections.splice(i, 1);
+      const [removed] = collections.splice(i, 1);
+      if (removed) await dbDel('col_' + removed.id);
       await saveCollections();
       renderHome();
     });
@@ -824,7 +828,10 @@ function removePhoto(idx) {
   URL.revokeObjectURL(p.url); photos.splice(idx,1);
   const total=Math.ceil(photos.length/PAGE_SIZE);
   if (reviewPage>=total && reviewPage>0) reviewPage=total-1;
-  renderReview(); scheduleSave();
+  renderReview();
+  // Persist removal immediately — don't wait for the debounce, otherwise
+  // navigating away within 1.5s would lose the deletion.
+  clearTimeout(saveTimer); saveLegendasToFolders();
 }
 
 function renderReview() {
@@ -905,6 +912,14 @@ async function init() {
   show('home-screen');
 }
 init();
+
+// Flush any pending debounced save before the tab is hidden/closed,
+// so caption/size edits aren't lost on quick navigation away.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden' && saveTimer) {
+    clearTimeout(saveTimer); saveLegendasToFolders();
+  }
+});
 
 // ═══════════════════════════════════════════════════
 //  PLAYER
