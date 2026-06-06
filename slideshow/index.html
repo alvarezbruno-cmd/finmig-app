@@ -410,6 +410,9 @@ async function loadCollections() {
       collections = old.length ? old.map(h => ({ id: newId(), name: h.name, handles: [h] })) : [];
       await saveCollections();
     }
+    // Once we're on the new format, purge the legacy keys for good so they
+    // can never resurrect deleted collections.
+    await dbDel('dirHandles'); await dbDel('dirHandle');
   } catch { collections = []; }
 }
 
