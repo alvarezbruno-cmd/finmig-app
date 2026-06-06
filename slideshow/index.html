@@ -166,6 +166,17 @@
     .pagination select:hover { border-color: var(--accent); }
     .pagination select:focus { outline: 3px solid var(--accent); outline-offset: 2px; }
 
+    .filter-bar { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 16px; width: 100%; max-width: 1200px; margin-bottom: 20px; }
+    .filter-bar .filter-field { display: flex; flex-direction: column; gap: 4px; }
+    .filter-bar label { color: var(--dim); font-size: .8rem; font-weight: 700; }
+    .filter-bar select { background: var(--surface); border: 2px solid var(--border); color: var(--text); border-radius: 8px; padding: 10px 14px; font-size: 1rem; font-weight: 700; cursor: pointer; min-width: 150px; }
+    .filter-bar select:hover { border-color: var(--accent); }
+    .filter-bar select:focus { outline: 3px solid var(--accent); outline-offset: 2px; }
+    .filter-bar select.active-filter { border-color: var(--accent); color: var(--accent); }
+    .filter-bar .filter-clear { background: transparent; border: 2px solid var(--border); color: var(--text); border-radius: 8px; padding: 10px 18px; cursor: pointer; font-size: 1rem; font-weight: 700; }
+    .filter-bar .filter-clear:hover { border-color: var(--accent); color: var(--accent); }
+    .filter-bar .filter-count { color: var(--dim); font-size: .9rem; align-self: center; }
+
     /* ══════════════════════════════
        PLAYER
     ══════════════════════════════ */
@@ -297,6 +308,7 @@
       <button class="btn btn-ghost"   id="back-btn">← Início</button>
     </div>
   </div>
+  <div class="filter-bar" id="filter-bar"></div>
   <div class="photo-grid" id="photo-grid"></div>
   <div class="pagination" id="pagination"></div>
 </div>
@@ -338,7 +350,7 @@
 // ═══════════════════════════════════════════════════
 //  STATE
 // ═══════════════════════════════════════════════════
-const APP_VERSION = 'v16 · 06/06';
+const APP_VERSION = 'v17 · 06/06';
 let apiKey = localStorage.getItem('slideshow_apikey') || '';
 
 // Collections: [{id, name, handles: [FileSystemDirectoryHandle]}]
@@ -354,6 +366,7 @@ let photos = [];
 let removedByFolder = new Map();
 let pendingAutoPlay = false;
 let reviewPage = 0;
+let filters = { country: '', city: '', year: '' }; // active gallery/slideshow filters
 let skippedFiles = [];          // names of files that couldn't be read as images
 let processingSet = new Set();  // indices of photos still being captioned in background
 const PAGE_SIZE = 48, BATCH = 50;
@@ -829,7 +842,7 @@ async function processPhotos(alreadyOnProcessing) {
   });
 
   // Show what's already captioned right away — don't block on processing.
-  reviewPage=0; renderReview(); show('review-screen');
+  filters={country:'',city:'',year:''}; reviewPage=0; renderReview(); show('review-screen');
   if (pendingAutoPlay) { pendingAutoPlay=false; startPlayer(true); }
 
   if (uncachedIdxs.length===0) { await saveLegendasToFolders(); return; }
@@ -968,12 +981,57 @@ function reviewStatsHtml() {
 }
 function refreshReviewStats() { document.getElementById('review-stats').innerHTML = reviewStatsHtml(); }
 
+// Distinct non-empty values of a photo field, with how many photos have each.
+function distinctValues(key) {
+  const m = new Map();
+  photos.forEach(p => { const v = p[key]; if (v) m.set(v, (m.get(v)||0)+1); });
+  return [...m.entries()].sort((a,b)=> String(a[0]).localeCompare(String(b[0]), 'pt', { numeric:true }));
+}
+// Global indices into photos[] that match the active filters (AND).
+function filteredIndices() {
+  const out=[];
+  photos.forEach((p,i)=>{
+    if (filters.country && p.country!==filters.country) return;
+    if (filters.city && p.city!==filters.city) return;
+    if (filters.year && p.year!==filters.year) return;
+    out.push(i);
+  });
+  return out;
+}
+function renderFilterBar() {
+  const bar=document.getElementById('filter-bar');
+  const fields=[['country','País'],['city','Cidade'],['year','Ano']];
+  const anyActive = filters.country||filters.city||filters.year;
+  const matched = filteredIndices().length;
+  bar.innerHTML = fields.map(([key,label])=>{
+    const vals=distinctValues(key);
+    if (!vals.length) return '';
+    const cur=filters[key];
+    const opts=[`<option value="">Todos</option>`]
+      .concat(vals.map(([v,n])=>`<option value="${escHtml(v)}" ${v===cur?'selected':''}>${escHtml(v)} (${n})</option>`)).join('');
+    return `<div class="filter-field"><label>${label}</label>`
+      + `<select data-key="${key}" class="${cur?'active-filter':''}">${opts}</select></div>`;
+  }).join('')
+  + (anyActive ? `<button class="filter-clear" id="filter-clear">Limpar filtros</button>` : '')
+  + (anyActive ? `<span class="filter-count">${matched} de ${photos.length} fotos</span>` : '');
+  bar.querySelectorAll('select[data-key]').forEach(sel=>sel.addEventListener('change',e=>{
+    filters[e.target.dataset.key]=e.target.value; reviewPage=0; renderReview(); window.scrollTo(0,0);
+  }));
+  bar.querySelector('#filter-clear')?.addEventListener('click',()=>{
+    filters={country:'',city:'',year:''}; reviewPage=0; renderReview(); window.scrollTo(0,0);
+  });
+}
+
 function renderReview() {
   document.getElementById('review-stats').innerHTML = reviewStatsHtml();
+  renderFilterBar();
+  const idxs=filteredIndices();
+  const total=Math.max(1,Math.ceil(idxs.length/PAGE_SIZE));
+  if (reviewPage>=total) reviewPage=0;
   const grid=document.getElementById('photo-grid');
   grid.innerHTML='';
-  photos.slice(reviewPage*PAGE_SIZE,(reviewPage+1)*PAGE_SIZE).forEach((p,i)=>{
-    const gi=reviewPage*PAGE_SIZE+i;
+  idxs.slice(reviewPage*PAGE_SIZE,(reviewPage+1)*PAGE_SIZE).forEach(gi=>{
+    const p=photos[gi];
     const card=document.createElement('div'); card.className='photo-card';
     card.innerHTML=`
       <div class="photo-thumb">
@@ -999,7 +1057,6 @@ function renderReview() {
   }));
   grid.querySelectorAll('.cs-dec').forEach(b=>b.addEventListener('click',e=>bumpScale(+e.target.dataset.idx,-0.1)));
   grid.querySelectorAll('.cs-inc').forEach(b=>b.addEventListener('click',e=>bumpScale(+e.target.dataset.idx,+0.1)));
-  const total=Math.ceil(photos.length/PAGE_SIZE);
   const pag=document.getElementById('pagination');
   if (total>1) {
     const opts=Array.from({length:total},(_,n)=>`<option value="${n}" ${n===reviewPage?'selected':''}>Página ${n+1}</option>`).join('');
@@ -1071,7 +1128,9 @@ const fillEl=document.getElementById('player-progress-fill'), controlsEl=documen
 
 function applyCapSize(p) { capText.style.fontSize=`calc(clamp(1.8rem, 4.5vw, 4.2rem) * ${p.capScale||1})`; }
 function startPlayer(shuffle, startIdx) {
-  isShuffle=shuffle; order=Array.from({length:photos.length},(_,i)=>i);
+  const base=filteredIndices();
+  if (!base.length) return;
+  isShuffle=shuffle; order=base.slice();
   if (shuffle) shuffleArr(order);
   pos=(startIdx!=null) ? Math.max(0,order.indexOf(startIdx)) : 0;
   isPlaying=true; showCap=true; speed=6;
@@ -1118,7 +1177,7 @@ document.getElementById('pc-caption').addEventListener('click',e=>{e.stopPropaga
 document.getElementById('pc-cap-smaller').addEventListener('click',e=>{e.stopPropagation();adjustCurrentScale(-0.1);});
 document.getElementById('pc-cap-bigger').addEventListener('click',e=>{e.stopPropagation();adjustCurrentScale(+0.1);});
 function adjustCurrentScale(delta){const gi=order[pos];setPhotoScale(gi,(photos[gi].capScale||1)+delta);applyCapSize(photos[gi]);scheduleSave();}
-document.getElementById('pc-shuffle').addEventListener('click',e=>{e.stopPropagation();isShuffle=!isShuffle;e.target.classList.toggle('dimmed',!isShuffle);if(isShuffle)shuffleArr(order);else order=Array.from({length:photos.length},(_,i)=>i);pos=0;displayPhoto(false);});
+document.getElementById('pc-shuffle').addEventListener('click',e=>{e.stopPropagation();isShuffle=!isShuffle;e.target.classList.toggle('dimmed',!isShuffle);if(isShuffle)shuffleArr(order);else order=filteredIndices();pos=0;displayPhoto(false);});
 document.getElementById('pc-speed-slider').addEventListener('input',e=>{e.stopPropagation();speed=+e.target.value;document.getElementById('pc-speed-label').textContent=speed+'s';startAutoPlay();});
 document.getElementById('pc-speed-slider').addEventListener('click',e=>e.stopPropagation());
 document.getElementById('pc-fullscreen').addEventListener('click',e=>{e.stopPropagation();if(!document.fullscreenElement)playerEl.requestFullscreen();else document.exitFullscreen();});
