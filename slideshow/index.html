@@ -143,6 +143,9 @@
     .btn-remove-photo { position: absolute; top: 6px; right: 6px; background: rgba(0,0,0,.75); border: none; border-radius: 50%; color: #fff; cursor: pointer; font-size: .8rem; font-weight: 700; width: 28px; height: 28px; line-height: 28px; text-align: center; opacity: 0; transition: opacity .15s, background .15s; }
     .photo-thumb:hover .btn-remove-photo { opacity: 1; }
     .btn-remove-photo:hover { background: rgba(200,40,40,.9); }
+    .btn-play-photo { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); background: rgba(0,0,0,.7); border: 2px solid #fff; border-radius: 50%; color: #fff; cursor: pointer; font-size: 1.3rem; width: 54px; height: 54px; line-height: 50px; text-align: center; padding-left: 4px; opacity: 0; transition: opacity .15s, background .15s; }
+    .photo-thumb:hover .btn-play-photo { opacity: 1; }
+    .btn-play-photo:hover { background: var(--accent); border-color: var(--accent); }
 
     .photo-caption { background: var(--bg); border: 2px solid var(--border); border-radius: 6px; color: var(--text); font-size: .85rem; padding: 6px 10px; width: 100%; outline: none; }
     .photo-caption:focus { border-color: var(--accent); outline: 2px solid var(--accent); outline-offset: 1px; }
@@ -335,7 +338,7 @@
 // ═══════════════════════════════════════════════════
 //  STATE
 // ═══════════════════════════════════════════════════
-const APP_VERSION = 'v15 · 06/06';
+const APP_VERSION = 'v16 · 06/06';
 let apiKey = localStorage.getItem('slideshow_apikey') || '';
 
 // Collections: [{id, name, handles: [FileSystemDirectoryHandle]}]
@@ -625,6 +628,7 @@ async function ensurePermission(handle) {
 async function inspectFile(file) {
   try {
     const b = new Uint8Array(await file.slice(0, 16).arrayBuffer());
+    if (b.length === 0) return { label:'vazio — provavelmente só na nuvem (Drive)' };
     // Displayable formats
     if (b[0]===0xFF && b[1]===0xD8 && b[2]===0xFF) return { mime:'image/jpeg' };
     if (b[0]===0x89 && b[1]===0x50 && b[2]===0x4E && b[3]===0x47) return { mime:'image/png' };
@@ -658,14 +662,21 @@ async function readImagesFromHandle(handle, onFile) {
     if (fh.kind !== 'file') continue;
     if (name === 'legendas.json') { try { legendas = JSON.parse(await (await fh.getFile()).text()); } catch {} continue; }
     const ext = fileExt(name);
-    const f = await fh.getFile();
-    if (f.type.startsWith('image/')) { imgs.push(f); if (onFile) onFile(); continue; }
-    // No image MIME. Only inspect bytes if the extension is missing or
-    // image-like — never read bytes of videos/docs (avoids cloud downloads).
-    if (ext !== '' && !IMAGE_EXTS.has(ext)) continue;
-    const r = await inspectFile(f);
-    if (r.mime) { imgs.push(new File([f], f.name, { type: r.mime, lastModified: f.lastModified })); if (onFile) onFile(); }
-    else skipped.push({ name, label: r.label });
+    // A single problematic file (e.g. cloud-only on Drive) must never abort the
+    // whole folder. Read each one defensively and register failures so they show
+    // up in the yellow warning instead of vanishing silently.
+    try {
+      const f = await fh.getFile();
+      if (f.type.startsWith('image/')) { imgs.push(f); if (onFile) onFile(); continue; }
+      // No image MIME. Only inspect bytes if the extension is missing or
+      // image-like — never read bytes of videos/docs (avoids cloud downloads).
+      if (ext !== '' && !IMAGE_EXTS.has(ext)) continue;
+      const r = await inspectFile(f);
+      if (r.mime) { imgs.push(new File([f], f.name, { type: r.mime, lastModified: f.lastModified })); if (onFile) onFile(); }
+      else skipped.push({ name, label: r.label });
+    } catch (e) {
+      skipped.push({ name, label: 'não foi possível abrir — pode estar só na nuvem (Drive)' });
+    }
   }
   return { files: imgs, legendas, subdirs, skipped };
 }
@@ -967,6 +978,7 @@ function renderReview() {
     card.innerHTML=`
       <div class="photo-thumb">
         <img src="${p.url}" loading="lazy" />
+        <button class="btn-play-photo" data-idx="${gi}" title="Iniciar a partir desta foto">▶</button>
         <button class="btn-remove-photo" data-idx="${gi}">✕</button>
       </div>
       <input class="photo-caption" type="text" value="${escHtml(captionToText(p))}" placeholder="${processingSet.has(gi)?'⚙️ gerando…':'sem legenda'}" data-idx="${gi}" />
@@ -979,6 +991,7 @@ function renderReview() {
     grid.appendChild(card);
   });
   grid.querySelectorAll('.btn-remove-photo').forEach(b=>b.addEventListener('click',e=>removePhoto(+e.target.dataset.idx)));
+  grid.querySelectorAll('.btn-play-photo').forEach(b=>b.addEventListener('click',e=>startPlayer(false,+e.currentTarget.dataset.idx)));
   grid.querySelectorAll('.photo-caption').forEach(inp=>inp.addEventListener('change',e=>{
     const idx=+e.target.dataset.idx; photos[idx].caption=e.target.value;
     const c=loadCaptionCache(); c[photos[idx].file.name]=e.target.value; saveCaptionCache(c);
@@ -1057,10 +1070,11 @@ const clockEl=document.getElementById('player-clock'), counterEl=document.getEle
 const fillEl=document.getElementById('player-progress-fill'), controlsEl=document.getElementById('player-controls');
 
 function applyCapSize(p) { capText.style.fontSize=`calc(clamp(1.8rem, 4.5vw, 4.2rem) * ${p.capScale||1})`; }
-function startPlayer(shuffle) {
+function startPlayer(shuffle, startIdx) {
   isShuffle=shuffle; order=Array.from({length:photos.length},(_,i)=>i);
   if (shuffle) shuffleArr(order);
-  pos=0; isPlaying=true; showCap=true; speed=6;
+  pos=(startIdx!=null) ? Math.max(0,order.indexOf(startIdx)) : 0;
+  isPlaying=true; showCap=true; speed=6;
   document.getElementById('pc-speed-slider').value=6; document.getElementById('pc-speed-label').textContent='6s';
   document.getElementById('pc-shuffle').classList.toggle('dimmed',!isShuffle);
   document.getElementById('pc-caption').classList.toggle('dimmed',!showCap);
