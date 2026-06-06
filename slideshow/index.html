@@ -286,6 +286,7 @@
     <div>
       <h1 id="review-title">Revisar legendas</h1>
       <p class="stats" id="review-stats"></p>
+      <div id="bg-status" style="display:none; margin-top:8px; color:var(--accent); font-weight:700;"></div>
     </div>
     <div class="btn-row" style="margin-top:0">
       <button class="btn btn-primary" id="play-btn">▶ Iniciar slideshow</button>
@@ -333,7 +334,7 @@
 // ═══════════════════════════════════════════════════
 //  STATE
 // ═══════════════════════════════════════════════════
-const APP_VERSION = 'v12 · 06/06';
+const APP_VERSION = 'v13 · 06/06';
 let apiKey = localStorage.getItem('slideshow_apikey') || '';
 
 // Collections: [{id, name, handles: [FileSystemDirectoryHandle]}]
@@ -795,7 +796,6 @@ document.getElementById('processing-cancel-btn').addEventListener('click', () =>
 
 async function processPhotos(alreadyOnProcessing) {
   processingAborted = false;
-  if (!alreadyOnProcessing) show('processing-screen');
   const captionCache = loadCaptionCache();
   const uncachedIdxs = [];
   photos.forEach((p,i) => {
@@ -806,25 +806,25 @@ async function processPhotos(alreadyOnProcessing) {
     } else { uncachedIdxs.push(i); }
   });
 
-  const finish = async () => {
-    reviewPage=0; renderReview(); show('review-screen');
-    if (pendingAutoPlay) { pendingAutoPlay=false; startPlayer(true); }
-    else await saveLegendasToFolders();
-  };
+  // Show what's already captioned right away — don't block on processing.
+  reviewPage=0; renderReview(); show('review-screen');
+  if (pendingAutoPlay) { pendingAutoPlay=false; startPlayer(true); }
 
-  if (uncachedIdxs.length===0) {
-    document.getElementById('progress-fill').style.width='100%';
-    document.getElementById('progress-text').textContent='Todas as legendas já estavam salvas!';
-    await sleep(500); await finish(); return;
-  }
+  if (uncachedIdxs.length===0) { await saveLegendasToFolders(); return; }
+  // Caption the remaining photos in the background, updating the UI live.
+  processInBackground(uncachedIdxs, captionCache);
+}
 
-  document.getElementById('processing-label').textContent =
-    `${uncachedIdxs.length} fotos novas · ${photos.length-uncachedIdxs.length} já processadas`;
+let bgRunning = false;
+async function processInBackground(uncachedIdxs, captionCache) {
+  bgRunning = true; processingAborted = false;
+  const total = uncachedIdxs.length;
   const batches = [];
-  for (let i=0; i<uncachedIdxs.length; i+=BATCH) batches.push(uncachedIdxs.slice(i,i+BATCH));
-  let done=0;
+  for (let i=0; i<total; i+=BATCH) batches.push(uncachedIdxs.slice(i,i+BATCH));
+  let done = 0;
+  setBgStatus(`Gerando legendas… 0 de ${total}`, true);
   for (let bi=0; bi<batches.length; bi++) {
-    if (processingAborted) { renderHome(); show('home-screen'); return; }
+    if (processingAborted) break;
     const batch=batches[bi], entries=batch.map(gi=>({name:photos[gi].name,folder:photos[gi].folderHandle?.name||null}));
     try {
       const result = await callClaude(entries);
@@ -835,17 +835,38 @@ async function processPhotos(alreadyOnProcessing) {
           photos[gi].year=r.year||null; photos[gi].month=r.month||null;
           photos[gi].city=r.city||null; photos[gi].country=r.country||null;
           photos[gi].caption=caption; captionCache[photos[gi].file.name]=caption;
+          updateCaptionField(gi);
         }
       });
     } catch(e) { console.warn('Batch',bi,'failed:',e); }
-    done=Math.min((bi+1)*BATCH,uncachedIdxs.length);
-    const pct=Math.round(done/uncachedIdxs.length*100);
-    document.getElementById('progress-fill').style.width=pct+'%';
-    document.getElementById('progress-text').textContent=`Lote ${bi+1} de ${batches.length} — ${done} / ${uncachedIdxs.length} fotos (${pct}%)`;
+    done=Math.min((bi+1)*BATCH,total);
+    saveCaptionCache(captionCache); // cheap localStorage cache, every batch
+    refreshReviewStats();
+    setBgStatus(`Gerando legendas… ${done} de ${total}`, true);
     if (bi<batches.length-1) await sleep(400);
   }
-  saveCaptionCache(captionCache);
-  await finish();
+  bgRunning = false;
+  // Write legendas.json into the folders once at the end (avoids hammering
+  // Drive when each photo lives in its own folder).
+  await saveLegendasToFolders();
+  setBgStatus(processingAborted ? '' : '✓ Todas as legendas prontas', false);
+  if (!processingAborted) setTimeout(()=>setBgStatus('', false), 4000);
+}
+
+function setBgStatus(text, showStop) {
+  const el = document.getElementById('bg-status');
+  if (!text) { el.style.display='none'; el.innerHTML=''; return; }
+  el.style.display='block';
+  el.innerHTML = `<span class="spinning" style="display:${showStop?'inline-block':'none'}">⚙️</span> ${escHtml(text)}`
+    + (showStop ? ` <button id="bg-stop" style="margin-left:10px; background:transparent; border:2px solid var(--border); color:var(--text); border-radius:6px; padding:4px 12px; cursor:pointer; font-weight:700;">✕ Parar</button>` : '');
+  if (showStop) document.getElementById('bg-stop')?.addEventListener('click', () => { processingAborted = true; });
+}
+
+// Updates a single caption input on the review grid if it's currently visible
+// and not being edited, so live captions appear without disrupting the user.
+function updateCaptionField(gi) {
+  const inp = document.querySelector(`.photo-caption[data-idx="${gi}"]`);
+  if (inp && inp !== document.activeElement) inp.value = captionToText(photos[gi]);
 }
 
 async function callClaude(entries) {
@@ -902,7 +923,7 @@ function removePhoto(idx) {
   clearTimeout(saveTimer); saveLegendasToFolders();
 }
 
-function renderReview() {
+function reviewStatsHtml() {
   const parsed=photos.filter(p=>p.caption).length;
   let statsHtml = `<span class="ok">${parsed}</span> com legenda · <span class="${photos.length-parsed>0?'warn':''}">${photos.length-parsed}</span> sem legenda · ${photos.length} fotos`;
   if (skippedFiles.length) {
@@ -910,7 +931,12 @@ function renderReview() {
     statsHtml += `<br><span class="warn">⚠ ${skippedFiles.length} arquivo(s) não puderam ser lidos como imagem</span>`
       + ` <span style="color:var(--dim);font-size:.85rem;">— provavelmente HEIC (foto de iPhone) ou formato não suportado. Converta para JPEG para incluí-los: ${escHtml(list)}</span>`;
   }
-  document.getElementById('review-stats').innerHTML = statsHtml;
+  return statsHtml;
+}
+function refreshReviewStats() { document.getElementById('review-stats').innerHTML = reviewStatsHtml(); }
+
+function renderReview() {
+  document.getElementById('review-stats').innerHTML = reviewStatsHtml();
   const grid=document.getElementById('photo-grid');
   grid.innerHTML='';
   photos.slice(reviewPage*PAGE_SIZE,(reviewPage+1)*PAGE_SIZE).forEach((p,i)=>{
