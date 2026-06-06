@@ -333,7 +333,7 @@
 // ═══════════════════════════════════════════════════
 //  STATE
 // ═══════════════════════════════════════════════════
-const APP_VERSION = 'v9 · 06/06';
+const APP_VERSION = 'v10 · 06/06';
 let apiKey = localStorage.getItem('slideshow_apikey') || '';
 
 // Collections: [{id, name, handles: [FileSystemDirectoryHandle]}]
@@ -544,7 +544,22 @@ document.getElementById('col-name-input').addEventListener('input', e => {
   editingCol.name = e.target.value.trim();
 });
 
-document.getElementById('col-back-btn').addEventListener('click', () => {
+// Commits the current editor state (name + sources) into collections[].
+// Returns true if anything was persisted.
+async function persistEditingCollection() {
+  if (!editingCol) return false;
+  editingCol.name = document.getElementById('col-name-input').value.trim() || 'Sem nome';
+  const existing = collections.find(c => c.id === editingCol.id);
+  const hasSources = editingCol.handles.length > 0 || editingPendingFiles.length > 0;
+  if (existing) { existing.name = editingCol.name; existing.handles = editingCol.handles; }
+  else if (hasSources) { collections.push({ id: editingCol.id, name: editingCol.name, handles: editingCol.handles }); }
+  else { return false; } // empty new draft — nothing to save
+  await saveCollections();
+  return true;
+}
+
+document.getElementById('col-back-btn').addEventListener('click', async () => {
+  await persistEditingCollection();
   renderHome(); show('home-screen');
 });
 
@@ -582,15 +597,7 @@ folderInput.addEventListener('change', e => {
 });
 
 document.getElementById('col-open-btn').addEventListener('click', async () => {
-  const name = document.getElementById('col-name-input').value.trim() || 'Sem nome';
-  editingCol.name = name;
-
-  // Save/update collection in list
-  const existing = collections.find(c => c.id === editingCol.id);
-  if (existing) { existing.name = editingCol.name; existing.handles = editingCol.handles; }
-  else { collections.push({ id: editingCol.id, name: editingCol.name, handles: editingCol.handles }); }
-  await saveCollections();
-
+  await persistEditingCollection();
   // Load and process
   await openCollection({ id: editingCol.id, name: editingCol.name, handles: editingCol.handles }, editingPendingFiles);
 });
