@@ -145,6 +145,18 @@
     .photo-caption:focus { border-color: var(--accent); }
     .photo-caption::placeholder { color: #555; }
 
+    /* ── Remove photo button ── */
+    .photo-thumb { position: relative; }
+    .btn-remove-photo {
+      position: absolute; top: 6px; right: 6px;
+      background: rgba(0,0,0,.65); border: none; border-radius: 50%;
+      color: #fff; cursor: pointer; font-size: .8rem; font-weight: 700;
+      width: 26px; height: 26px; line-height: 26px; text-align: center;
+      opacity: 0; transition: opacity .15s, background .15s;
+    }
+    .photo-thumb:hover .btn-remove-photo { opacity: 1; }
+    .btn-remove-photo:hover { background: rgba(200,40,40,.85); }
+
     /* ── Per-photo caption size control ── */
     .cap-size { display:flex; align-items:center; gap:6px; }
     .cap-size .cs-label { color: var(--dim); font-size:.68rem; margin-right:auto; }
@@ -450,6 +462,7 @@ let apiKey = localStorage.getItem('slideshow_apikey') || '';
 let photos  = [];   // [{file, url, name, year, month, city, country, caption, capScale}]
 let reviewPage  = 0;
 let savedHandles = [];     // FileSystemDirectoryHandle[] persisted in IndexedDB
+let removedByFolder = new Map(); // folderHandle.name -> Set of filenames excluded from slideshow
 let pendingAppend = false; // for the webkitdirectory fallback
 const PAGE_SIZE = 48;
 const BATCH     = 50;
@@ -683,8 +696,22 @@ async function saveLegendasToFolders() {
       dados: p.caption || '', tamanho: p.capScale || 1
     };
   });
-  for (const { handle, fotos } of byFolder.values())
-    await writeLegendasJson(handle, { atualizado: new Date().toLocaleDateString('pt-BR'), fotos });
+  // Merge removedByFolder into each folder's data
+  for (const [name, removed] of removedByFolder) {
+    if (!byFolder.has(name)) {
+      // Folder has no remaining photos but has exclusions — find the handle
+      const handle = savedHandles.find(h => h.name === name);
+      if (handle) byFolder.set(name, { handle, fotos: {} });
+    }
+    if (byFolder.has(name))
+      byFolder.get(name).excluidas = [...removed];
+  }
+  for (const { handle, fotos, excluidas } of byFolder.values())
+    await writeLegendasJson(handle, {
+      atualizado: new Date().toLocaleDateString('pt-BR'),
+      excluidas: excluidas || [],
+      fotos
+    });
   flushCaptionsToCache();
 }
 function scheduleSave() {
@@ -805,13 +832,21 @@ function buildPhotoObjects(groups, { append }) {
   if (!append) {
     photos.forEach(p => URL.revokeObjectURL(p.url));
     photos = [];
+    removedByFolder = new Map();
   }
   const existing = new Set(photos.map(p => p.file.name));
   const sizeCache = loadSizeCache();
   groups.forEach(({ files, handle, legendas }) => {
     const lMap = legendas?.fotos || {};
+    const excluded = new Set(legendas?.excluidas || []);
+    // Seed removedByFolder so saves preserve previously excluded photos
+    if (handle && excluded.size) {
+      const key = handle.name;
+      if (!removedByFolder.has(key)) removedByFolder.set(key, new Set());
+      excluded.forEach(n => removedByFolder.get(key).add(n));
+    }
     files.slice().sort((a, b) => a.name.localeCompare(b.name)).forEach(f => {
-      if (existing.has(f.name)) return;
+      if (existing.has(f.name) || excluded.has(f.name)) return;
       existing.add(f.name);
       const ld = lMap[f.name];
       photos.push({
@@ -822,7 +857,7 @@ function buildPhotoObjects(groups, { append }) {
         caption: '',
         capScale: ld?.tamanho || sizeCache[f.name] || 1,
         folderHandle: handle || null,
-        _fromJson: ld?.dados || null   // caption pre-loaded from legendas.json
+        _fromJson: ld?.dados || null
       });
     });
   });
@@ -971,6 +1006,24 @@ function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 // ═══════════════════════════════════════════════════════
 //  REVIEW
 // ═══════════════════════════════════════════════════════
+function removePhoto(idx) {
+  const p = photos[idx];
+  if (!p) return;
+  // Track in removedByFolder so it's saved to legendas.json
+  if (p.folderHandle) {
+    const key = p.folderHandle.name;
+    if (!removedByFolder.has(key)) removedByFolder.set(key, new Set());
+    removedByFolder.get(key).add(p.file.name);
+  }
+  URL.revokeObjectURL(p.url);
+  photos.splice(idx, 1);
+  // Keep reviewPage in bounds
+  const totalPages = Math.ceil(photos.length / PAGE_SIZE);
+  if (reviewPage >= totalPages && reviewPage > 0) reviewPage = totalPages - 1;
+  renderReview();
+  scheduleSave();
+}
+
 function renderReview() {
   const parsed = photos.filter(p => p.caption).length;
   document.getElementById('review-stats').innerHTML =
@@ -986,7 +1039,10 @@ function renderReview() {
     const card = document.createElement('div');
     card.className = 'photo-card';
     card.innerHTML = `
-      <div class="photo-thumb"><img src="${p.url}" loading="lazy" /></div>
+      <div class="photo-thumb">
+        <img src="${p.url}" loading="lazy" />
+        <button class="btn-remove-photo" data-idx="${globalIdx}" title="Remover do slideshow">✕</button>
+      </div>
       <input class="photo-caption" type="text" value="${escHtml(captionToText(p))}" placeholder="sem legenda" data-idx="${globalIdx}" />
       <div class="cap-size">
         <span class="cs-label">Tamanho</span>
@@ -1008,6 +1064,7 @@ function renderReview() {
       scheduleSave();
     });
   });
+  grid.querySelectorAll('.btn-remove-photo').forEach(b => b.addEventListener('click', e => removePhoto(+e.target.dataset.idx)));
   grid.querySelectorAll('.cs-dec').forEach(b => b.addEventListener('click', e => bumpScale(+e.target.dataset.idx, -0.1)));
   grid.querySelectorAll('.cs-inc').forEach(b => b.addEventListener('click', e => bumpScale(+e.target.dataset.idx, +0.1)));
 
