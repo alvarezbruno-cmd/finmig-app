@@ -734,9 +734,9 @@ async function processPhotos(alreadyOnProcessing) {
   for (let i=0; i<uncachedIdxs.length; i+=BATCH) batches.push(uncachedIdxs.slice(i,i+BATCH));
   let done=0;
   for (let bi=0; bi<batches.length; bi++) {
-    const batch=batches[bi], filenames=batch.map(gi=>photos[gi].name);
+    const batch=batches[bi], entries=batch.map(gi=>({name:photos[gi].name,folder:photos[gi].folderHandle?.name||null}));
     try {
-      const result = await callClaude(filenames);
+      const result = await callClaude(entries);
       if (result && Array.isArray(result)) result.forEach(r => {
         const gi=batch[r.i];
         if (gi!==undefined && gi<photos.length) {
@@ -757,16 +757,20 @@ async function processPhotos(alreadyOnProcessing) {
   await finish();
 }
 
-async function callClaude(filenames) {
-  const prompt = `Extract year, month, city, country from these ${filenames.length} photo filenames (index:name):\n`
-    + filenames.map((f,i)=>`${i}:${f}`).join('\n')
+async function callClaude(entries) {
+  const lines = entries.map((e,i) => {
+    const parts = [`${i}  arquivo: "${e.name}"`];
+    if (e.folder) parts.push(`pasta: "${e.folder}"`);
+    return parts.join('   ');
+  }).join('\n');
+  const prompt = `Each photo below has a filename and optionally a folder name. Extract year, month, city, country from both — they may be complementary. Use whichever source has more detail.\n\n${lines}`
     + `\n\nReturn ONLY a JSON array: [{"i":0,"year":"1992","month":"08","city":"Paris","country":"França"},...]`
     + `\nRules: year=4-digit (1900-2030) or null; month=2-digit or null; city=city name or null; country in Portuguese or null.`;
   const resp = await fetch('https://api.anthropic.com/v1/messages', {
     method:'POST',
     headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
     body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:2048,
-      system:'You extract photo metadata from filenames. Return ONLY valid JSON array, no explanation. Country names in Portuguese.',
+      system:'You extract photo metadata from filenames and folder names. Return ONLY valid JSON array, no explanation. Country names in Portuguese.',
       messages:[{role:'user',content:prompt}]})
   });
   if (!resp.ok) { const txt=await resp.text(); throw new Error(`API ${resp.status}: ${txt}`); }
