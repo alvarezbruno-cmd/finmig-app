@@ -590,16 +590,31 @@ async function ensurePermission(handle) {
   if (p !== 'granted') p = await handle.requestPermission({ mode: 'readwrite' });
   return p === 'granted';
 }
+// Reads images directly inside one folder (no recursion).
 async function readImagesFromHandle(handle) {
   if (!(await ensurePermission(handle))) throw new Error('Permissão negada para "' + handle.name + '".');
-  const imgs = []; let legendas = null;
+  const imgs = []; let legendas = null; const subdirs = [];
   for await (const [name, fh] of handle) {
+    if (fh.kind === 'directory') { subdirs.push(fh); continue; }
     if (fh.kind !== 'file') continue;
     if (name === 'legendas.json') { try { legendas = JSON.parse(await (await fh.getFile()).text()); } catch {} continue; }
     const f = await fh.getFile();
     if (f.type.startsWith('image/')) imgs.push(f);
   }
-  return { files: imgs, legendas };
+  return { files: imgs, legendas, subdirs };
+}
+
+// Reads a folder AND all its subfolders recursively, returning one group
+// per folder that contains images. Each group keeps its own folder handle
+// and legendas.json so captions stay scoped to the right folder.
+async function collectGroups(handle, acc, depth) {
+  acc = acc || []; depth = depth || 0;
+  let r;
+  try { r = await readImagesFromHandle(handle); }
+  catch (e) { if (depth === 0) throw e; return acc; }
+  if (r.files.length) acc.push({ files: r.files, handle, legendas: r.legendas });
+  for (const sub of r.subdirs) await collectGroups(sub, acc, depth + 1);
+  return acc;
 }
 async function writeLegendasJson(handle, data) {
   try { const fh = await handle.getFileHandle('legendas.json',{create:true}); const w=await fh.createWritable(); await w.write(JSON.stringify(data,null,2)); await w.close(); }
@@ -618,7 +633,7 @@ async function openCollection(col, pendingFiles) {
   const groups = [];
   const failed = [];
   for (const h of col.handles) {
-    try { const r = await readImagesFromHandle(h); if (r.files.length) groups.push({ files: r.files, handle: h, legendas: r.legendas }); }
+    try { await collectGroups(h, groups); }
     catch(e) { failed.push(h.name); }
   }
   if (pendingFiles && pendingFiles.length) {
@@ -643,7 +658,7 @@ async function playAll() {
   const groups = [];
   for (const col of collections) {
     for (const h of col.handles) {
-      try { const r = await readImagesFromHandle(h); if (r.files.length) groups.push({ files: r.files, handle: h, legendas: r.legendas }); }
+      try { await collectGroups(h, groups); }
       catch {}
     }
   }
@@ -669,8 +684,9 @@ function buildPhotoObjects(groups) {
       excluded.forEach(n => removedByFolder.get(handle.name).add(n));
     }
     files.slice().sort((a,b) => a.name.localeCompare(b.name)).forEach(f => {
-      if (existing.has(f.name) || excluded.has(f.name)) return;
-      existing.add(f.name);
+      const key = (handle?.name || '') + '/' + f.name;
+      if (existing.has(key) || excluded.has(f.name)) return;
+      existing.add(key);
       const ld = lMap[f.name];
       photos.push({ file:f, url:URL.createObjectURL(f), name:f.name.replace(/\.[^.]+$/,''),
         year:null, month:null, city:null, country:null, caption:'',
