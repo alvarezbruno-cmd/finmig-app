@@ -273,6 +273,7 @@
     <p class="progress-label" id="progress-text">Preparando…</p>
   </div>
   <p style="color:var(--dim); font-size:.9rem; margin-top:24px;">Para muitas fotos, isso pode levar alguns minutos.</p>
+  <button class="btn btn-ghost" id="processing-cancel-btn" style="margin-top:28px;">← Cancelar</button>
 </div>
 
 <!-- ════ TELA 5: REVISÃO ════ -->
@@ -398,27 +399,33 @@ async function loadCollections() {
   try {
     const meta = await dbGet('cols_meta');
     if (meta !== undefined) {
-      // cols_meta exists (even if empty) — it's the source of truth.
-      collections = await Promise.all(meta.map(async m => ({
-        id: m.id, name: m.name,
-        handles: (await dbGet('col_' + m.id)) || []
-      })));
+      // col_handles is a single object {id: [handles]} — avoids orphaned keys
+      // on deletion. Fall back to reading individual col_<id> keys if migrating
+      // from the old format.
+      let allHandles = await dbGet('col_handles');
+      if (allHandles === undefined) {
+        allHandles = {};
+        for (const m of meta) allHandles[m.id] = (await dbGet('col_' + m.id)) || [];
+      }
+      collections = meta.map(m => ({ id: m.id, name: m.name, handles: allHandles[m.id] || [] }));
     } else {
-      // First run on this device: migrate from old single-folder format.
+      // First run: migrate from legacy single-folder format.
       let old = await dbGet('dirHandles');
       if (!old) { const s = await dbGet('dirHandle'); old = s ? [s] : []; }
       collections = old.length ? old.map(h => ({ id: newId(), name: h.name, handles: [h] })) : [];
-      await saveCollections();
     }
-    // Once we're on the new format, purge the legacy keys for good so they
-    // can never resurrect deleted collections.
+    // Always normalise to current format on load.
+    await saveCollections();
+    // Purge legacy keys so they can never resurrect deleted collections.
     await dbDel('dirHandles'); await dbDel('dirHandle');
   } catch { collections = []; }
 }
 
 async function saveCollections() {
-  await dbSet('cols_meta', collections.map(c => ({ id: c.id, name: c.name })));
-  for (const col of collections) await dbSet('col_' + col.id, col.handles);
+  const meta = collections.map(c => ({ id: c.id, name: c.name }));
+  const handles = Object.fromEntries(collections.map(c => [c.id, c.handles]));
+  await dbSet('cols_meta', meta);
+  await dbSet('col_handles', handles);
 }
 
 // ═══════════════════════════════════════════════════
@@ -450,8 +457,7 @@ function renderHome() {
     card.querySelector('.edit').addEventListener('click', e => { e.stopPropagation(); openCollectionEditor(col); });
     card.querySelector('.del').addEventListener('click', async e => {
       e.stopPropagation();
-      const [removed] = collections.splice(i, 1);
-      if (removed) await dbDel('col_' + removed.id);
+      collections.splice(i, 1);
       await saveCollections();
       renderHome();
     });
@@ -691,7 +697,9 @@ function buildPhotoObjects(groups) {
       excluded.forEach(n => removedByFolder.get(handle.name).add(n));
     }
     files.slice().sort((a,b) => a.name.localeCompare(b.name)).forEach(f => {
-      const key = (handle?.name || '') + '/' + f.name;
+      // Use size+lastModified+name as key so the same physical file loaded via
+      // two different path routes (e.g. parent folder + subfolder) is deduplicated.
+      const key = f.size + '_' + f.lastModified + '_' + f.name;
       if (existing.has(key) || excluded.has(f.name)) return;
       existing.add(key);
       const ld = lMap[f.name];
@@ -730,7 +738,13 @@ function scheduleSave() { clearTimeout(saveTimer); saveTimer = setTimeout(()=>sa
 // ═══════════════════════════════════════════════════
 //  PROCESSING
 // ═══════════════════════════════════════════════════
+let processingAborted = false;
+document.getElementById('processing-cancel-btn').addEventListener('click', () => {
+  processingAborted = true;
+});
+
 async function processPhotos(alreadyOnProcessing) {
+  processingAborted = false;
   if (!alreadyOnProcessing) show('processing-screen');
   const captionCache = loadCaptionCache();
   const uncachedIdxs = [];
@@ -760,6 +774,7 @@ async function processPhotos(alreadyOnProcessing) {
   for (let i=0; i<uncachedIdxs.length; i+=BATCH) batches.push(uncachedIdxs.slice(i,i+BATCH));
   let done=0;
   for (let bi=0; bi<batches.length; bi++) {
+    if (processingAborted) { renderHome(); show('home-screen'); return; }
     const batch=batches[bi], entries=batch.map(gi=>({name:photos[gi].name,folder:photos[gi].folderHandle?.name||null}));
     try {
       const result = await callClaude(entries);
