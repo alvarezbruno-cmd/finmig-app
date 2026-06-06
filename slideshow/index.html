@@ -5,403 +5,285 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Alvarez Slideshow</title>
   <style>
-    /* ── Base ── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --bg:      #111;
-      --surface: #1c1c1e;
-      --border:  #2c2c2e;
-      --text:    #f0f0f0;
-      --dim:     #888;
-      --accent:  #4f8ef7;
-      --ok:      #34c759;
-      --warn:    #ff9f0a;
+      --bg:      #000000;
+      --surface: #111111;
+      --border:  #d4d4d4;
+      --text:    #ffffff;
+      --dim:     #cccccc;
+      --accent:  #5bbcff;
+      --ok:      #4dff91;
+      --warn:    #ffcc33;
     }
 
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      min-height: 100vh;
+      background: var(--bg); color: var(--text); min-height: 100vh;
+      font-size: 18px;
     }
 
-    /* ── Screen system ── */
     .screen { display: none; }
     .screen.active { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 40px 20px; }
 
-    /* ── Cards / containers ── */
-    .card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 16px;
-      padding: 32px;
-      width: 100%;
-      max-width: 480px;
+    /* ── Auth card ── */
+    .card { background: var(--surface); border: 2px solid var(--border); border-radius: 16px; padding: 36px; width: 100%; max-width: 500px; }
+    .card h1 { font-size: 1.7rem; font-weight: 700; margin-bottom: 10px; }
+    .card p  { color: var(--dim); font-size: 1rem; line-height: 1.6; }
+    input[type="password"], input[type="text"] {
+      width: 100%; background: var(--bg); border: 2px solid var(--border); border-radius: 8px;
+      color: var(--text); font-size: 1rem; padding: 12px 16px; margin-top: 16px; outline: none;
     }
-    .card h1 { font-size: 1.5rem; font-weight: 700; margin-bottom: 8px; }
-    .card p  { color: var(--dim); font-size: 0.9rem; line-height: 1.5; }
-
-    /* ── Inputs ── */
-    input[type="text"], input[type="password"] {
-      width: 100%;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      color: var(--text);
-      font-size: 0.9rem;
-      padding: 10px 14px;
-      margin-top: 16px;
-      outline: none;
-      font-family: monospace;
-    }
-    input[type="text"]:focus, input[type="password"]:focus { border-color: var(--accent); }
+    input[type="password"]:focus, input[type="text"]:focus { border-color: var(--accent); outline: 3px solid var(--accent); outline-offset: 2px; }
+    input[type="text"] { margin-top: 0; }
 
     /* ── Buttons ── */
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 11px 22px;
-      border-radius: 10px;
-      border: none;
-      cursor: pointer;
-      font-size: 0.9rem;
-      font-weight: 600;
-      transition: opacity .15s, transform .1s;
-    }
+    .btn { display: inline-flex; align-items: center; gap: 8px; padding: 13px 26px; border-radius: 10px; border: 2px solid transparent; cursor: pointer; font-size: 1rem; font-weight: 700; transition: opacity .15s, transform .1s; }
     .btn:active { transform: scale(.97); }
-    .btn:disabled { opacity: .4; cursor: default; }
-    .btn-primary { background: var(--accent); color: #fff; }
-    .btn-primary:not(:disabled):hover { opacity: .88; }
-    .btn-ghost  { background: var(--border); color: var(--text); }
-    .btn-ghost:not(:disabled):hover  { opacity: .78; }
+    .btn:disabled { opacity: .35; cursor: default; }
+    .btn-primary { background: var(--accent); color: #000; border-color: var(--accent); }
+    .btn-primary:not(:disabled):hover { opacity: .85; }
+    .btn-ghost  { background: transparent; color: var(--text); border-color: var(--border); }
+    .btn-ghost:not(:disabled):hover  { background: var(--surface); border-color: var(--accent); }
+    .btn-danger { background: transparent; color: #ff8080; border-color: #ff6060; }
+    .btn-danger:not(:disabled):hover { background: rgba(255,60,60,.1); }
     .btn-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 20px; }
 
-    /* ── Resume boxes ── */
-    .resume-box {
-      background: rgba(79,142,247,.08);
-      border: 1px solid rgba(79,142,247,.25);
-      border-radius: 14px;
-      padding: 20px 24px;
-      margin-bottom: 20px;
+    /* ── Error ── */
+    .error-box { background: rgba(255,60,60,.15); border: 2px solid #ff6060; border-radius: 10px; padding: 14px 18px; color: #ffaaaa; font-size: 1rem; margin-top: 16px; font-weight: 600; }
+
+    /* ══════════════════════════════
+       HOME SCREEN
+    ══════════════════════════════ */
+    #home-screen { justify-content: flex-start; padding-top: 48px; }
+    .home-wrap { width: 100%; max-width: 860px; }
+    .home-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 36px; }
+    .home-header h1 { font-size: 2rem; font-weight: 700; letter-spacing: -.01em; }
+    .home-header .sub { color: var(--dim); font-size: .95rem; margin-top: 4px; }
+
+    .folder-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 16px; }
+
+    .folder-card {
+      background: var(--surface); border: 2px solid var(--border); border-radius: 16px;
+      padding: 32px 16px 24px; text-align: center; cursor: pointer;
+      transition: border-color .2s, background .2s, transform .12s;
+      position: relative; user-select: none;
     }
-    .resume-box .box-label { font-size: .78rem; color: var(--dim); margin-bottom: 6px; letter-spacing:.04em; text-transform:uppercase; }
-    .resume-box .folder-name { font-weight: 700; font-size: 1rem; margin-bottom: 0; word-break:break-all; }
+    .folder-card:hover  { border-color: var(--accent); background: rgba(91,188,255,.07); transform: translateY(-2px); }
+    .folder-card:active { transform: translateY(0); }
+    .fc-icon { font-size: 3rem; margin-bottom: 12px; line-height: 1; }
+    .fc-name { font-size: 1rem; font-weight: 700; word-break: break-word; line-height: 1.3; }
 
-    .sep-text { text-align: center; color: var(--dim); font-size: .8rem; margin: 20px 0 4px; }
-
-    /* ── Folder list (album) ── */
-    .folder-row { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 0; border-top:1px solid var(--border); }
-    .folder-row:first-child { border-top:none; }
-    .folder-row .fr-name { font-size:.9rem; word-break:break-all; display:flex; align-items:center; gap:6px; }
-    .folder-remove { background:none; border:none; color:var(--dim); cursor:pointer; font-size:.95rem; padding:4px 8px; border-radius:6px; }
-    .folder-remove:hover { color:#ff6b6b; background:rgba(255,107,107,.08); }
-
-    /* ── Drop zone ── */
-    .dropzone {
-      border: 2px dashed var(--border);
-      border-radius: 14px;
-      padding: 48px 20px;
-      text-align: center;
-      cursor: pointer;
-      transition: border-color .2s, background .2s;
-      margin-top: 20px;
+    /* card action buttons (edit / remove) */
+    .fc-actions {
+      position: absolute; top: 8px; right: 8px;
+      display: flex; gap: 4px; opacity: 0; transition: opacity .15s;
     }
-    .dropzone.over { border-color: var(--accent); background: rgba(79,142,247,.07); }
-    .dropzone .icon { font-size: 3rem; margin-bottom: 12px; }
-    .dropzone h2 { font-size: 1.1rem; margin-bottom: 6px; }
-    .dropzone p { color: var(--dim); font-size: 0.85rem; }
-
-    /* ── Progress ── */
-    .progress-wrap { width: 100%; max-width: 400px; margin-top: 24px; }
-    .progress-bar-bg { background: var(--border); border-radius: 99px; height: 6px; overflow: hidden; }
-    .progress-bar-fill { background: var(--accent); height: 100%; border-radius: 99px; transition: width .4s ease; }
-    .progress-label { color: var(--dim); font-size: 0.85rem; margin-top: 10px; text-align: center; }
-
-    /* ── Stats ── */
-    .stats { color: var(--dim); font-size: 0.85rem; margin-bottom: 16px; }
-    .ok  { color: var(--ok); font-weight: 700; }
-    .warn { color: var(--warn); font-weight: 700; }
-
-    /* ── Review grid ── */
-    #review-screen { justify-content: flex-start; padding-top: 32px; }
-    .review-header { width: 100%; max-width: 1200px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; }
-    .review-header h1 { font-size: 1.3rem; }
-    .photo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; width: 100%; max-width: 1200px; }
-    .photo-card { display: flex; flex-direction: column; gap: 6px; }
-    .photo-thumb { aspect-ratio: 1; border-radius: 10px; overflow: hidden; background: var(--border); }
-    .photo-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
-    .photo-caption {
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      color: var(--text);
-      font-size: 0.75rem;
-      padding: 5px 8px;
-      width: 100%;
-      outline: none;
-    }
-    .photo-caption:focus { border-color: var(--accent); }
-    .photo-caption::placeholder { color: #555; }
-
-    /* ── Per-photo caption size control ── */
-    .cap-size { display:flex; align-items:center; gap:6px; }
-    .cap-size .cs-label { color: var(--dim); font-size:.68rem; margin-right:auto; }
-    .cap-size button {
-      background: var(--border); border:none; color: var(--text);
-      border-radius:6px; width:28px; height:24px; cursor:pointer;
-      font-size:.75rem; font-weight:700; line-height:1;
-    }
-    .cap-size button:hover { background:#3a3a3c; }
-    .cap-size .cs-val { color: var(--dim); font-size:.7rem; min-width:38px; text-align:center; font-variant-numeric:tabular-nums; }
-
-    /* ── Pagination ── */
-    .pagination { display: flex; align-items: center; gap: 12px; margin-top: 24px; margin-bottom: 40px; }
-    .pagination button { background: var(--border); border: none; color: var(--text); border-radius: 8px; padding: 8px 16px; cursor: pointer; font-size: 0.9rem; }
-    .pagination button:disabled { opacity: .35; cursor: default; }
-    .pagination span { color: var(--dim); font-size: 0.85rem; }
-
-    /* ── Player ── */
-    #player {
-      position: fixed; inset: 0;
-      background: #000;
-      z-index: 9999;
-      overflow: hidden;
-      display: none;
-    }
-    #player.active { display: block; }
-
-    #player-img {
-      position: absolute; inset: 0;
-      width: 100%; height: 100%;
-      object-fit: contain;
-      transition: opacity .7s ease;
-    }
-
-    #player-caption {
-      position: absolute; bottom: 0; left: 0; right: 0;
-      padding: 18px 36px 20px;
-      background: rgba(0,0,0,.72);
-      transition: opacity .7s ease;
-    }
-    #player-caption p {
-      color: #fff;
-      text-align: left;
-      font-weight: 700;
-      letter-spacing: .01em;
-      font-size: clamp(1.8rem, 4.5vw, 4.2rem);
-      line-height: 1.1;
-    }
-    #player-caption p .cap-country {
-      color: rgba(255,255,255,.55);
-      font-weight: 400;
-    }
-
-    #player-clock {
-      position: absolute; top: 28px; right: 36px;
-      color: rgba(255,255,255,.3);
-      font-size: clamp(.9rem, 1.6vw, 1.5rem);
-      font-variant-numeric: tabular-nums;
-      pointer-events: none;
-    }
-
-    #player-counter {
-      position: absolute; top: 28px; left: 36px;
-      color: rgba(255,255,255,.25);
-      font-size: clamp(.75rem, 1.2vw, 1rem);
-      pointer-events: none;
-    }
-
-    #player-progress {
-      position: absolute; top: 0; left: 0; right: 0;
-      height: 2px; background: rgba(255,255,255,.1);
-    }
-    #player-progress-fill {
-      height: 100%; background: rgba(255,255,255,.45);
-      transition: width .5s ease;
-    }
-
-    #player-controls {
-      position: absolute; bottom: 0; left: 0; right: 0;
-      display: flex; align-items: center; justify-content: center; gap: 10px;
-      padding: 24px 0 28px;
-      background: linear-gradient(to top, rgba(0,0,0,.55) 0%, transparent 100%);
-      transition: opacity .4s;
-      flex-wrap: wrap;
-    }
-    #player-controls.hidden { opacity: 0; pointer-events: none; }
-
-    .pc-btn {
-      background: rgba(0,0,0,.55);
-      backdrop-filter: blur(8px);
-      border: none;
-      border-radius: 12px;
-      color: rgba(255,255,255,.8);
-      cursor: pointer;
-      padding: 10px 18px;
-      font-size: 1.1rem;
+    .folder-card:hover .fc-actions { opacity: 1; }
+    .fc-action-btn {
+      background: rgba(0,0,0,.7); border: 1px solid var(--border); border-radius: 6px;
+      color: var(--text); cursor: pointer; font-size: .8rem; padding: 3px 7px; line-height: 1;
       transition: background .15s, color .15s;
     }
+    .fc-action-btn:hover { background: var(--accent); color: #000; border-color: var(--accent); }
+    .fc-action-btn.del:hover { background: #ff4040; color: #fff; border-color: #ff4040; }
+
+    /* Add card */
+    .fc-add { border-style: dashed; }
+    .fc-add .fc-icon, .fc-add .fc-name { color: var(--dim); transition: color .2s; }
+    .fc-add:hover .fc-icon, .fc-add:hover .fc-name { color: var(--accent); }
+
+    .home-footer { margin-top: 36px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+    #home-msg { color: var(--dim); font-size: .9rem; }
+
+    /* ══════════════════════════════
+       COLLECTION EDITOR SCREEN
+    ══════════════════════════════ */
+    #collection-screen { justify-content: flex-start; padding-top: 48px; }
+    .col-wrap { width: 100%; max-width: 560px; }
+
+    .col-back { background: none; border: none; color: var(--dim); cursor: pointer; font-size: 1rem; padding: 0 0 24px; display: flex; align-items: center; gap: 6px; }
+    .col-back:hover { color: var(--text); }
+
+    .col-section { margin-top: 28px; }
+    .col-section label { display: block; font-size: .85rem; color: var(--dim); font-weight: 700; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 10px; }
+
+    .source-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+    .source-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; background: var(--surface); border: 2px solid var(--border); border-radius: 10px; padding: 10px 14px; }
+    .source-row .sr-name { font-size: .9rem; font-weight: 600; flex: 1; word-break: break-all; }
+    .source-row .sr-type { font-size: .75rem; color: var(--dim); }
+    .source-remove { background: none; border: none; color: var(--dim); cursor: pointer; font-size: .9rem; padding: 2px 6px; border-radius: 4px; }
+    .source-remove:hover { color: #ff6060; }
+
+    .col-empty { color: var(--dim); font-size: .9rem; padding: 16px 0 4px; }
+
+    /* ══════════════════════════════
+       PROGRESS
+    ══════════════════════════════ */
+    .progress-wrap { width: 100%; max-width: 420px; margin-top: 24px; }
+    .progress-bar-bg { background: var(--surface); border: 2px solid var(--border); border-radius: 99px; height: 10px; overflow: hidden; }
+    .progress-bar-fill { background: var(--accent); height: 100%; border-radius: 99px; transition: width .4s ease; }
+    .progress-label { color: var(--dim); font-size: 1rem; margin-top: 12px; text-align: center; font-weight: 600; }
+
+    /* ══════════════════════════════
+       REVIEW
+    ══════════════════════════════ */
+    #review-screen { justify-content: flex-start; padding-top: 32px; }
+    .review-header { width: 100%; max-width: 1200px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; }
+    .review-header h1 { font-size: 1.5rem; }
+    .stats { color: var(--dim); font-size: 1rem; margin-bottom: 16px; }
+    .ok   { color: var(--ok);  font-weight: 700; }
+    .warn { color: var(--warn); font-weight: 700; }
+
+    .photo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; width: 100%; max-width: 1200px; }
+    .photo-card { display: flex; flex-direction: column; gap: 6px; }
+    .photo-thumb { aspect-ratio: 1; border-radius: 10px; overflow: hidden; background: var(--surface); position: relative; }
+    .photo-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .btn-remove-photo { position: absolute; top: 6px; right: 6px; background: rgba(0,0,0,.75); border: none; border-radius: 50%; color: #fff; cursor: pointer; font-size: .8rem; font-weight: 700; width: 28px; height: 28px; line-height: 28px; text-align: center; opacity: 0; transition: opacity .15s, background .15s; }
+    .photo-thumb:hover .btn-remove-photo { opacity: 1; }
+    .btn-remove-photo:hover { background: rgba(200,40,40,.9); }
+
+    .photo-caption { background: var(--bg); border: 2px solid var(--border); border-radius: 6px; color: var(--text); font-size: .85rem; padding: 6px 10px; width: 100%; outline: none; }
+    .photo-caption:focus { border-color: var(--accent); outline: 2px solid var(--accent); outline-offset: 1px; }
+    .photo-caption::placeholder { color: #777; }
+
+    .cap-size { display:flex; align-items:center; gap:6px; }
+    .cap-size .cs-label { color: var(--dim); font-size:.75rem; margin-right:auto; }
+    .cap-size button { background: var(--surface); border: 2px solid var(--border); color: var(--text); border-radius:6px; width:32px; height:28px; cursor:pointer; font-size:.8rem; font-weight:700; line-height:1; }
+    .cap-size button:hover { border-color: var(--accent); color: var(--accent); }
+    .cap-size .cs-val { color: var(--dim); font-size:.78rem; min-width:40px; text-align:center; font-variant-numeric:tabular-nums; }
+
+    .pagination { display: flex; align-items: center; gap: 12px; margin-top: 24px; margin-bottom: 40px; }
+    .pagination button { background: transparent; border: 2px solid var(--border); color: var(--text); border-radius: 8px; padding: 10px 20px; cursor: pointer; font-size: 1rem; font-weight: 700; }
+    .pagination button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+    .pagination button:disabled { opacity: .3; cursor: default; }
+    .pagination span { color: var(--dim); font-size: 1rem; }
+
+    /* ══════════════════════════════
+       PLAYER
+    ══════════════════════════════ */
+    #player { position: fixed; inset: 0; background: #000; z-index: 9999; overflow: hidden; display: none; }
+    #player.active { display: block; }
+    #player-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; transition: opacity .7s ease; }
+    #player-caption { position: absolute; bottom: 0; left: 0; right: 0; padding: 18px 36px 20px; background: rgba(0,0,0,.72); transition: opacity .7s ease; }
+    #player-caption p { color: #fff; text-align: left; font-weight: 700; letter-spacing: .01em; font-size: clamp(1.8rem, 4.5vw, 4.2rem); line-height: 1.1; }
+    #player-caption p .cap-country { color: rgba(255,255,255,.55); font-weight: 400; }
+    #player-clock { position: absolute; top: 28px; right: 36px; color: rgba(255,255,255,.3); font-size: clamp(.9rem, 1.6vw, 1.5rem); font-variant-numeric: tabular-nums; pointer-events: none; }
+    #player-counter { position: absolute; top: 28px; left: 36px; color: rgba(255,255,255,.25); font-size: clamp(.75rem, 1.2vw, 1rem); pointer-events: none; }
+    #player-progress { position: absolute; top: 0; left: 0; right: 0; height: 2px; background: rgba(255,255,255,.1); }
+    #player-progress-fill { height: 100%; background: rgba(255,255,255,.45); transition: width .5s ease; }
+    #player-controls { position: absolute; bottom: 0; left: 0; right: 0; display: flex; align-items: center; justify-content: center; gap: 10px; padding: 24px 0 28px; background: linear-gradient(to top, rgba(0,0,0,.55) 0%, transparent 100%); transition: opacity .4s; flex-wrap: wrap; }
+    #player-controls.hidden { opacity: 0; pointer-events: none; }
+    .pc-btn { background: rgba(0,0,0,.55); backdrop-filter: blur(8px); border: none; border-radius: 12px; color: rgba(255,255,255,.8); cursor: pointer; padding: 10px 18px; font-size: 1.1rem; transition: background .15s, color .15s; }
     .pc-btn:hover { background: rgba(0,0,0,.75); color: #fff; }
     .pc-btn.large { font-size: 2rem; padding: 6px 16px; }
     .pc-btn.dimmed { color: rgba(255,255,255,.3); }
-    .pc-btn.danger:hover { color: #ff6b6b; }
     .pc-btn.small { font-size: .9rem; font-weight:700; padding: 10px 14px; }
-
+    .pc-btn.danger:hover { color: #ff6b6b; }
     .pc-divider { width: 1px; height: 28px; background: rgba(255,255,255,.15); margin: 0 4px; }
-
-    .pc-speed {
-      display: flex; align-items: center; gap: 8px;
-      background: rgba(0,0,0,.55);
-      backdrop-filter: blur(8px);
-      border-radius: 12px;
-      padding: 8px 14px;
-    }
+    .pc-speed { display: flex; align-items: center; gap: 8px; background: rgba(0,0,0,.55); backdrop-filter: blur(8px); border-radius: 12px; padding: 8px 14px; }
     .pc-speed span { color: rgba(255,255,255,.4); font-size: .8rem; }
     .pc-speed input[type=range] { width: 80px; accent-color: #fff; cursor: pointer; }
 
-    /* ── Ken Burns keyframes ── */
-    @keyframes kb1 { from { transform: scale(1)    translate(0,0);       } to { transform: scale(1.14) translate(0,0);       } }
-    @keyframes kb2 { from { transform: scale(1.14) translate(0,0);       } to { transform: scale(1)    translate(0,0);       } }
-    @keyframes kb3 { from { transform: scale(1.1)  translate(2%,0);      } to { transform: scale(1.1)  translate(-2%,0);     } }
-    @keyframes kb4 { from { transform: scale(1.1)  translate(-2%,0);     } to { transform: scale(1.1)  translate(2%,0);      } }
-    @keyframes kb5 { from { transform: scale(1.04) translate(-1%,-1%);   } to { transform: scale(1.14) translate(1%, 1%);    } }
-    @keyframes kb6 { from { transform: scale(1.12) translate(1%, -1.5%); } to { transform: scale(1.03) translate(-1%, 1%);   } }
-
-    /* ── Spin for loading ── */
-    @keyframes spin { to { transform: rotate(360deg); } }
-    .spinning { display: inline-block; animation: spin 1.2s linear infinite; }
-
-    /* ── Error message ── */
-    .error-box { background: rgba(255,60,60,.1); border: 1px solid rgba(255,60,60,.3); border-radius: 10px; padding: 12px 16px; color: #ff8080; font-size: .85rem; margin-top: 16px; }
-
-    /* ── Keyboard ref (upload screen) ── */
-    .key-ref { margin-top: 28px; padding: 20px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; width: 100%; max-width: 560px; }
-    .key-ref h3 { font-size: .85rem; color: var(--dim); margin-bottom: 12px; text-transform: uppercase; letter-spacing: .06em; }
-    .key-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-    .key-item { display: flex; align-items: center; gap: 8px; font-size: .8rem; color: var(--dim); }
-    kbd { background: var(--border); border-radius: 5px; padding: 2px 7px; font-family: monospace; font-size: .75rem; color: var(--text); }
+    @keyframes kb1 { from{transform:scale(1) translate(0,0)}    to{transform:scale(1.14) translate(0,0)} }
+    @keyframes kb2 { from{transform:scale(1.14) translate(0,0)} to{transform:scale(1) translate(0,0)} }
+    @keyframes kb3 { from{transform:scale(1.1) translate(2%,0)} to{transform:scale(1.1) translate(-2%,0)} }
+    @keyframes kb4 { from{transform:scale(1.1) translate(-2%,0)} to{transform:scale(1.1) translate(2%,0)} }
+    @keyframes kb5 { from{transform:scale(1.04) translate(-1%,-1%)} to{transform:scale(1.14) translate(1%,1%)} }
+    @keyframes kb6 { from{transform:scale(1.12) translate(1%,-1.5%)} to{transform:scale(1.03) translate(-1%,1%)} }
+    @keyframes spin { to{transform:rotate(360deg)} }
+    .spinning { display:inline-block; animation:spin 1.2s linear infinite; }
   </style>
 </head>
 <body>
 
-<!-- ════════════════ TELA 1: API KEY ════════════════ -->
+<!-- ════ TELA 1: CHAVE DE API ════ -->
 <div id="apikey-screen" class="screen active">
   <div class="card">
     <h1>🔑 Chave do Claude</h1>
-    <p style="margin-top:8px">
-      Para extrair as legendas automaticamente dos nomes das fotos,
-      o app usa a inteligência artificial Claude.
-      Cole abaixo a sua chave de API — ela fica salva neste browser
-      e você não precisa digitar de novo.
-    </p>
+    <p style="margin-top:8px">Cole abaixo a sua chave de API do Claude — ela fica salva neste browser.</p>
     <input type="password" id="apikey-input" placeholder="sk-ant-..." autocomplete="off" />
     <div id="apikey-error" class="error-box" style="display:none"></div>
     <div class="btn-row">
       <button class="btn btn-primary" id="apikey-save-btn">Salvar e continuar →</button>
     </div>
-    <p style="margin-top:20px; font-size:.8rem">
-      Não tem uma chave? Crie em
-      <a href="https://console.anthropic.com" target="_blank" style="color:var(--accent)">console.anthropic.com</a>
-      → API Keys → Create Key.
-    </p>
+    <p style="margin-top:20px; font-size:.9rem; color:var(--dim)">Não tem uma chave? Crie em <a href="https://console.anthropic.com" target="_blank" style="color:var(--accent)">console.anthropic.com</a> → API Keys → Create Key.</p>
   </div>
 </div>
 
-<!-- ════════════════ TELA 2: UPLOAD ════════════════ -->
-<div id="upload-screen" class="screen">
-  <div style="width:100%; max-width:560px;">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
-      <h1 style="font-size:1.5rem; font-weight:700;">📷 Alvarez Slideshow</h1>
-      <button class="btn btn-ghost" id="change-key-btn" style="font-size:.8rem; padding:7px 14px;">Trocar chave</button>
-    </div>
-    <p style="color:var(--dim); font-size:.9rem; margin-bottom:20px;">
-      Junte uma ou mais pastas com as fotos do seu pai.
-      A IA lê os nomes dos arquivos e cria as legendas
-      <strong style="color:var(--text)">[ano] Cidade País</strong> automaticamente.
-    </p>
-
-    <!-- Retomar fotos já carregadas em memória -->
-    <div id="in-memory-section" style="display:none">
-      <div class="resume-box">
-        <div class="box-label">Fotos carregadas agora</div>
-        <div class="folder-name" id="in-memory-label"></div>
-        <div class="btn-row">
-          <button class="btn btn-primary" id="resume-review-btn">← Voltar à revisão</button>
-        </div>
+<!-- ════ TELA 2: INÍCIO (grid de coleções) ════ -->
+<div id="home-screen" class="screen">
+  <div class="home-wrap">
+    <div class="home-header">
+      <div>
+        <h1>Alvarez Slideshow</h1>
+        <div class="sub">Selecione uma coleção ou toque tudo junto</div>
       </div>
-      <div class="sep-text">— ou abra suas pastas —</div>
+      <button class="btn btn-ghost" id="change-key-btn" style="font-size:.9rem; padding:10px 18px;">Trocar chave</button>
     </div>
 
-    <!-- Pastas salvas (álbum) -->
-    <div id="folders-section" style="display:none">
-      <div class="resume-box">
-        <div class="box-label">Suas pastas</div>
-        <div id="folders-list"></div>
-        <div class="btn-row">
-          <button class="btn btn-primary" id="open-all-btn">📂 Abrir todas juntas</button>
-          <button class="btn btn-ghost"   id="add-folder-btn">+ Adicionar pasta</button>
-        </div>
-      </div>
-      <div class="sep-text">— ou comece do zero —</div>
-    </div>
+    <div class="folder-grid" id="folder-grid"></div>
 
-    <div class="dropzone" id="dropzone">
-      <div class="icon">📂</div>
-      <h2>Arraste uma pasta aqui</h2>
-      <p>ou use um dos botões abaixo</p>
-      <div class="btn-row" style="justify-content:center; margin-top:20px;">
-        <button class="btn btn-primary" id="pick-folder-btn">Selecionar pasta</button>
-        <button class="btn btn-ghost"   id="pick-files-btn">Selecionar fotos</button>
-      </div>
-    </div>
-
-    <input type="file" id="folder-input" multiple accept="image/*" style="display:none" />
-    <input type="file" id="files-input"  multiple accept="image/*" style="display:none" />
-
-    <div id="upload-error" class="error-box" style="display:none"></div>
-
-    <div class="key-ref">
-      <h3>Controles durante o slideshow</h3>
-      <div class="key-grid">
-        <div class="key-item"><kbd>← →</kbd> Foto anterior / próxima</div>
-        <div class="key-item"><kbd>Espaço</kbd> Pausar / continuar</div>
-        <div class="key-item"><kbd>C</kbd> Mostrar / ocultar legenda</div>
-        <div class="key-item"><kbd>+ −</kbd> Tamanho da legenda</div>
-        <div class="key-item"><kbd>S</kbd> Ordem aleatória</div>
-        <div class="key-item"><kbd>F</kbd> Tela cheia</div>
-        <div class="key-item"><kbd>Esc</kbd> Sair do slideshow</div>
-      </div>
+    <div class="home-footer">
+      <button class="btn btn-primary" id="play-all-btn" style="font-size:1.1rem; padding:15px 32px;" disabled>▶ Tocar tudo</button>
+      <span id="home-msg"></span>
     </div>
   </div>
 </div>
 
-<!-- ════════════════ TELA 3: PROCESSANDO ════════════════ -->
+<!-- ════ TELA 3: EDITOR DE COLEÇÃO ════ -->
+<div id="collection-screen" class="screen">
+  <div class="col-wrap">
+    <button class="col-back" id="col-back-btn">← Início</button>
+
+    <h2 style="font-size:1.5rem; font-weight:700; margin-bottom:24px;" id="col-screen-title">Nova coleção</h2>
+
+    <div class="col-section">
+      <label for="col-name-input">Nome da coleção</label>
+      <input type="text" id="col-name-input" placeholder="Ex: Paris 1992" />
+    </div>
+
+    <div class="col-section">
+      <label>Fotos</label>
+      <div class="source-list" id="source-list"></div>
+      <div id="col-empty" class="col-empty">Nenhuma foto adicionada ainda.</div>
+      <div class="btn-row" style="margin-top:12px;">
+        <button class="btn btn-ghost" id="col-add-folder-btn">📂 Adicionar pasta</button>
+        <button class="btn btn-ghost" id="col-add-files-btn">🖼 Adicionar fotos</button>
+      </div>
+    </div>
+
+    <div id="col-error" class="error-box" style="display:none; margin-top:20px;"></div>
+
+    <div class="btn-row" style="margin-top:32px;">
+      <button class="btn btn-primary" id="col-open-btn" disabled>▶ Abrir no slideshow</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════ TELA 4: PROCESSANDO ════ -->
 <div id="processing-screen" class="screen">
   <div class="spinning" style="font-size:3rem; margin-bottom:20px;">⚙️</div>
-  <h2 style="font-size:1.2rem; margin-bottom:8px;">Lendo os nomes das fotos com IA…</h2>
-  <p id="processing-label" style="color:var(--dim); font-size:.9rem; margin-bottom:20px;"></p>
+  <h2 style="font-size:1.3rem; margin-bottom:10px;">Lendo os nomes das fotos com IA…</h2>
+  <p id="processing-label" style="color:var(--dim); font-size:1rem; margin-bottom:20px;"></p>
   <div class="progress-wrap">
-    <div class="progress-bar-bg">
-      <div class="progress-bar-fill" id="progress-fill" style="width:0%"></div>
-    </div>
+    <div class="progress-bar-bg"><div class="progress-bar-fill" id="progress-fill" style="width:0%"></div></div>
     <p class="progress-label" id="progress-text">Preparando…</p>
   </div>
-  <p style="color:var(--dim); font-size:.8rem; margin-top:24px;">Para muitas fotos, isso pode levar alguns minutos.</p>
+  <p style="color:var(--dim); font-size:.9rem; margin-top:24px;">Para muitas fotos, isso pode levar alguns minutos.</p>
 </div>
 
-<!-- ════════════════ TELA 4: REVISÃO ════════════════ -->
+<!-- ════ TELA 5: REVISÃO ════ -->
 <div id="review-screen" class="screen">
-  <div class="review-header" id="review-header">
+  <div class="review-header">
     <div>
-      <h1>Revisar legendas</h1>
+      <h1 id="review-title">Revisar legendas</h1>
       <p class="stats" id="review-stats"></p>
     </div>
     <div class="btn-row" style="margin-top:0">
       <button class="btn btn-primary" id="play-btn">▶ Iniciar slideshow</button>
       <button class="btn btn-ghost"   id="shuffle-btn">⇄ Aleatório</button>
-      <button class="btn btn-ghost"   id="add-folder-review-btn">+ Adicionar pasta</button>
       <button class="btn btn-ghost"   id="back-btn">← Início</button>
     </div>
   </div>
@@ -409,814 +291,674 @@
   <div class="pagination" id="pagination"></div>
 </div>
 
-<!-- ════════════════ PLAYER ════════════════ -->
+<!-- ════ PLAYER ════ -->
 <div id="player">
   <div id="player-progress"><div id="player-progress-fill" style="width:0%"></div></div>
   <img id="player-img" src="" alt="" />
   <div id="player-caption"><p id="player-caption-text"></p></div>
   <div id="player-clock"></div>
   <div id="player-counter"></div>
-
   <div id="player-controls">
-    <button class="pc-btn large" id="pc-prev" title="Anterior (←)">‹</button>
-    <button class="pc-btn" id="pc-playpause" title="Pausar / Continuar (Espaço)">⏸</button>
-    <button class="pc-btn large" id="pc-next" title="Próxima (→)">›</button>
-
+    <button class="pc-btn large" id="pc-prev">‹</button>
+    <button class="pc-btn" id="pc-playpause">⏸</button>
+    <button class="pc-btn large" id="pc-next">›</button>
     <div class="pc-divider"></div>
-
-    <button class="pc-btn" id="pc-caption" title="Legenda (C)">𝗧</button>
-    <button class="pc-btn small" id="pc-cap-smaller" title="Diminuir legenda (−)">A−</button>
-    <button class="pc-btn small" id="pc-cap-bigger" title="Aumentar legenda (+)">A+</button>
-    <button class="pc-btn dimmed" id="pc-shuffle" title="Aleatório (S)">⇄</button>
-
+    <button class="pc-btn" id="pc-caption">𝗧</button>
+    <button class="pc-btn small" id="pc-cap-smaller">A−</button>
+    <button class="pc-btn small" id="pc-cap-bigger">A+</button>
+    <button class="pc-btn dimmed" id="pc-shuffle">⇄</button>
     <div class="pc-speed">
       <span>⏱</span>
       <input type="range" id="pc-speed-slider" min="3" max="30" step="1" value="6" />
       <span id="pc-speed-label">6s</span>
     </div>
-
     <div class="pc-divider"></div>
-
-    <button class="pc-btn" id="pc-fullscreen" title="Tela cheia (F)">⛶</button>
-    <button class="pc-btn danger" id="pc-exit" title="Sair (Esc)">✕</button>
+    <button class="pc-btn" id="pc-fullscreen">⛶</button>
+    <button class="pc-btn danger" id="pc-exit">✕</button>
   </div>
 </div>
 
+<input type="file" id="folder-input" multiple accept="image/*" style="display:none" />
+<input type="file" id="files-input"  multiple accept="image/*" style="display:none" />
+
 <script>
-// ═══════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════
 //  STATE
-// ═══════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════
 let apiKey = localStorage.getItem('slideshow_apikey') || '';
-let photos  = [];   // [{file, url, name, year, month, city, country, caption, capScale}]
-let reviewPage  = 0;
-let savedHandles = [];     // FileSystemDirectoryHandle[] persisted in IndexedDB
-let pendingAppend = false; // for the webkitdirectory fallback
-const PAGE_SIZE = 48;
-const BATCH     = 50;
+
+// Collections: [{id, name, handles: [FileSystemDirectoryHandle]}]
+let collections = [];
+
+// The collection being edited/created in collection-screen
+let editingCol = null;          // {id, name, handles[]}
+let editingIsNew = false;       // true = not yet saved to collections[]
+let editingPendingFiles = [];   // File[] added via file picker this session
+
+// Photos for review/player
+let photos = [];
+let removedByFolder = new Map();
+let pendingAutoPlay = false;
+let reviewPage = 0;
+const PAGE_SIZE = 48, BATCH = 50;
 const MIN_SCALE = 0.5, MAX_SCALE = 2.5;
 
-// Player state
-let order     = [];
-let pos       = 0;
-let isPlaying = true;
-let showCap   = true;
-let isShuffle = false;
-let speed     = 6;
-let autoTimer = null;
-let ctrlTimer = null;
+// Player
+let order=[], pos=0, isPlaying=true, showCap=true;
+let isShuffle=false, speed=6;
+let autoTimer=null, ctrlTimer=null, clockInterval;
 const kbAnims = ['kb1','kb2','kb3','kb4','kb5','kb6'];
 
-// ═══════════════════════════════════════════════════════
-//  INDEXEDDB HELPERS
-// ═══════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════
+//  INDEXEDDB
+// ═══════════════════════════════════════════════════
 function openDB() {
-  return new Promise((res, rej) => {
+  return new Promise((res,rej) => {
     const req = indexedDB.open('alvarez-slideshow', 1);
     req.onupgradeneeded = e => e.target.result.createObjectStore('kv');
     req.onsuccess = e => res(e.target.result);
-    req.onerror   = () => rej(req.error);
+    req.onerror = () => rej(req.error);
   });
 }
 async function dbGet(key) {
   const db = await openDB();
-  return new Promise((res, rej) => {
-    const r = db.transaction('kv','readonly').objectStore('kv').get(key);
-    r.onsuccess = () => res(r.result);
-    r.onerror   = () => rej(r.error);
-  });
+  return new Promise((res,rej) => { const r=db.transaction('kv','readonly').objectStore('kv').get(key); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); });
 }
-async function dbSet(key, val) {
+async function dbSet(key,val) {
   const db = await openDB();
-  return new Promise((res, rej) => {
-    const r = db.transaction('kv','readwrite').objectStore('kv').put(val, key);
-    r.onsuccess = () => res();
-    r.onerror   = () => rej(r.error);
-  });
+  return new Promise((res,rej) => { const r=db.transaction('kv','readwrite').objectStore('kv').put(val,key); r.onsuccess=()=>res(); r.onerror=()=>rej(r.error); });
 }
 
-// ═══════════════════════════════════════════════════════
-//  CAPTION + SIZE CACHES (localStorage, keyed by filename)
-// ═══════════════════════════════════════════════════════
-function loadCaptionCache() {
-  try { return JSON.parse(localStorage.getItem('slideshow_captions') || '{}'); }
-  catch { return {}; }
-}
-function saveCaptionCache(cache) {
-  try { localStorage.setItem('slideshow_captions', JSON.stringify(cache)); }
-  catch (e) { console.warn('Caption cache save failed:', e); }
-}
-function loadSizeCache() {
-  try { return JSON.parse(localStorage.getItem('slideshow_sizes') || '{}'); }
-  catch { return {}; }
-}
-function saveSizeCache(cache) {
-  try { localStorage.setItem('slideshow_sizes', JSON.stringify(cache)); }
-  catch (e) { console.warn('Size cache save failed:', e); }
-}
+// ═══════════════════════════════════════════════════
+//  CAPTION / SIZE CACHE
+// ═══════════════════════════════════════════════════
+const loadCaptionCache = () => { try{return JSON.parse(localStorage.getItem('slideshow_captions')||'{}')}catch{return{}} };
+const saveCaptionCache = c  => { try{localStorage.setItem('slideshow_captions',JSON.stringify(c))}catch{} };
+const loadSizeCache    = () => { try{return JSON.parse(localStorage.getItem('slideshow_sizes')||'{}')}catch{return{}} };
+const saveSizeCache    = c  => { try{localStorage.setItem('slideshow_sizes',JSON.stringify(c))}catch{} };
 function flushCaptionsToCache() {
-  const cache = loadCaptionCache();
-  photos.forEach(p => { if (p.caption) cache[p.file.name] = p.caption; });
-  saveCaptionCache(cache);
-}
-function setPhotoScale(idx, scale) {
-  scale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, Math.round(scale * 10) / 10));
-  photos[idx].capScale = scale;
-  const c = loadSizeCache();
-  c[photos[idx].file.name] = scale;
-  saveSizeCache(c);
-  return scale;
+  const c = loadCaptionCache();
+  photos.forEach(p => { if(p.caption) c[p.file.name]=p.caption; });
+  saveCaptionCache(c);
 }
 
-// ═══════════════════════════════════════════════════════
-//  SCREENS
-// ═══════════════════════════════════════════════════════
-function show(id) {
-  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-  document.getElementById(id).classList.add('active');
-}
-function showUploadError(msg) {
-  const el = document.getElementById('upload-error');
-  el.textContent = msg;
-  el.style.display = 'block';
-}
-function hideUploadError() {
-  document.getElementById('upload-error').style.display = 'none';
-}
-function updateUploadUI() {
-  const memSec = document.getElementById('in-memory-section');
-  if (photos.length > 0) {
-    document.getElementById('in-memory-label').textContent = `${photos.length} fotos carregadas`;
-    memSec.style.display = 'block';
-  } else {
-    memSec.style.display = 'none';
-  }
-  renderFoldersList();
-}
+// ═══════════════════════════════════════════════════
+//  COLLECTIONS PERSISTENCE
+// ═══════════════════════════════════════════════════
+function newId() { return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
 
-// ═══════════════════════════════════════════════════════
-//  SAVED FOLDERS (album)
-// ═══════════════════════════════════════════════════════
-async function loadSavedHandles() {
+async function loadCollections() {
   try {
-    let arr = await dbGet('dirHandles');
-    if (!arr) {
-      // migrate the old single-folder key
-      const single = await dbGet('dirHandle');
-      arr = single ? [single] : [];
-      if (single) await dbSet('dirHandles', arr);
+    const meta = await dbGet('cols_meta');
+    if (meta && meta.length) {
+      collections = await Promise.all(meta.map(async m => ({
+        id: m.id, name: m.name,
+        handles: (await dbGet('col_' + m.id)) || []
+      })));
+    } else {
+      // Migrate from old single-folder format
+      let old = await dbGet('dirHandles');
+      if (!old) { const s = await dbGet('dirHandle'); old = s ? [s] : []; }
+      if (old.length) {
+        collections = old.map(h => ({ id: newId(), name: h.name, handles: [h] }));
+        await saveCollections();
+      }
     }
-    savedHandles = arr || [];
-  } catch (e) {
-    console.warn('Could not read IndexedDB:', e);
-    savedHandles = [];
+  } catch { collections = []; }
+}
+
+async function saveCollections() {
+  await dbSet('cols_meta', collections.map(c => ({ id: c.id, name: c.name })));
+  for (const col of collections) await dbSet('col_' + col.id, col.handles);
+}
+
+// ═══════════════════════════════════════════════════
+//  SCREENS
+// ═══════════════════════════════════════════════════
+function show(id) { document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active')); document.getElementById(id).classList.add('active'); }
+
+// ═══════════════════════════════════════════════════
+//  HOME SCREEN
+// ═══════════════════════════════════════════════════
+function renderHome() {
+  const grid = document.getElementById('folder-grid');
+  grid.innerHTML = '';
+
+  collections.forEach((col, i) => {
+    const card = document.createElement('div');
+    card.className = 'folder-card';
+    card.innerHTML = `
+      <div class="fc-actions">
+        <button class="fc-action-btn edit" data-i="${i}" title="Editar">✏️</button>
+        <button class="fc-action-btn del"  data-i="${i}" title="Remover">✕</button>
+      </div>
+      <div class="fc-icon">📁</div>
+      <div class="fc-name">${escHtml(col.name)}</div>`;
+    card.addEventListener('click', e => {
+      if (e.target.closest('.fc-actions')) return;
+      openCollection(col);
+    });
+    card.querySelector('.edit').addEventListener('click', e => { e.stopPropagation(); openCollectionEditor(col); });
+    card.querySelector('.del').addEventListener('click', async e => {
+      e.stopPropagation();
+      collections.splice(i, 1);
+      await saveCollections();
+      renderHome();
+    });
+    grid.appendChild(card);
+  });
+
+  // "+ Nova coleção" card
+  const addCard = document.createElement('div');
+  addCard.className = 'folder-card fc-add';
+  addCard.innerHTML = `<div class="fc-icon">+</div><div class="fc-name">Nova coleção</div>`;
+  addCard.addEventListener('click', () => openCollectionEditor(null));
+  grid.appendChild(addCard);
+
+  document.getElementById('play-all-btn').disabled = collections.length === 0;
+}
+
+function showHomeMsg(msg, isError) {
+  const el = document.getElementById('home-msg');
+  el.textContent = msg;
+  el.style.color = isError ? '#ff8080' : 'var(--dim)';
+  setTimeout(() => { el.textContent = ''; }, 6000);
+}
+
+// ═══════════════════════════════════════════════════
+//  COLLECTION EDITOR
+// ═══════════════════════════════════════════════════
+function openCollectionEditor(col) {
+  if (col) {
+    // Edit existing
+    editingCol = { id: col.id, name: col.name, handles: [...col.handles] };
+    editingIsNew = false;
+    document.getElementById('col-screen-title').textContent = 'Editar coleção';
+  } else {
+    // New
+    editingCol = { id: newId(), name: '', handles: [] };
+    editingIsNew = true;
+    document.getElementById('col-screen-title').textContent = 'Nova coleção';
   }
+  editingPendingFiles = [];
+  document.getElementById('col-name-input').value = editingCol.name;
+  document.getElementById('col-error').style.display = 'none';
+  renderSourceList();
+  show('collection-screen');
+  setTimeout(() => document.getElementById('col-name-input').focus(), 100);
 }
-async function persistHandles() {
-  try { await dbSet('dirHandles', savedHandles); }
-  catch (e) { console.warn('IndexedDB save failed:', e); }
-}
-function renderFoldersList() {
-  const sec  = document.getElementById('folders-section');
-  const list = document.getElementById('folders-list');
-  if (!savedHandles.length) { sec.style.display = 'none'; return; }
-  sec.style.display = 'block';
+
+function renderSourceList() {
+  const list = document.getElementById('source-list');
+  const empty = document.getElementById('col-empty');
+  const openBtn = document.getElementById('col-open-btn');
   list.innerHTML = '';
-  savedHandles.forEach((h, i) => {
+
+  editingCol.handles.forEach((h, i) => {
     const row = document.createElement('div');
-    row.className = 'folder-row';
-    row.innerHTML = `<span class="fr-name">📁 ${escHtml(h.name)}</span>
-                     <button class="folder-remove" data-i="${i}" title="Remover esta pasta da lista">✕</button>`;
+    row.className = 'source-row';
+    row.innerHTML = `<span class="sr-type">📁</span><span class="sr-name">${escHtml(h.name)}</span><button class="source-remove" data-i="${i}" data-type="handle">✕</button>`;
     list.appendChild(row);
   });
-  list.querySelectorAll('.folder-remove').forEach(b => {
-    b.addEventListener('click', async e => {
-      const i = +e.target.dataset.i;
-      savedHandles.splice(i, 1);
-      await persistHandles();
-      renderFoldersList();
-    });
-  });
-}
 
-// ═══════════════════════════════════════════════════════
-//  INIT
-// ═══════════════════════════════════════════════════════
-async function init() {
-  if (!apiKey) { show('apikey-screen'); return; }
-  show('upload-screen');
-  await loadSavedHandles();
-  updateUploadUI();
-}
-init();
-
-// ═══════════════════════════════════════════════════════
-//  API KEY SCREEN
-// ═══════════════════════════════════════════════════════
-document.getElementById('apikey-save-btn').addEventListener('click', () => {
-  const v = document.getElementById('apikey-input').value.trim();
-  const err = document.getElementById('apikey-error');
-  if (!v.startsWith('sk-ant-')) {
-    err.textContent = 'A chave deve começar com "sk-ant-". Verifique e tente de novo.';
-    err.style.display = 'block';
-    return;
+  if (editingPendingFiles.length) {
+    const row = document.createElement('div');
+    row.className = 'source-row';
+    row.innerHTML = `<span class="sr-type">🖼</span><span class="sr-name">${editingPendingFiles.length} foto${editingPendingFiles.length>1?'s':''} avulsa${editingPendingFiles.length>1?'s':''}</span><button class="source-remove" data-type="files">✕</button>`;
+    list.appendChild(row);
   }
-  err.style.display = 'none';
-  apiKey = v;
-  localStorage.setItem('slideshow_apikey', v);
-  init();
-});
-document.getElementById('change-key-btn').addEventListener('click', () => {
-  document.getElementById('apikey-input').value = '';
-  show('apikey-screen');
+
+  list.querySelectorAll('.source-remove').forEach(b => b.addEventListener('click', e => {
+    if (e.target.dataset.type === 'handle') editingCol.handles.splice(+e.target.dataset.i, 1);
+    else editingPendingFiles = [];
+    renderSourceList();
+  }));
+
+  const hasAnything = editingCol.handles.length > 0 || editingPendingFiles.length > 0;
+  empty.style.display = hasAnything ? 'none' : 'block';
+  openBtn.disabled = !hasAnything;
+}
+
+document.getElementById('col-name-input').addEventListener('input', e => {
+  editingCol.name = e.target.value.trim();
 });
 
-// ═══════════════════════════════════════════════════════
-//  RESUME / FOLDER BUTTONS
-// ═══════════════════════════════════════════════════════
-document.getElementById('resume-review-btn').addEventListener('click', () => {
-  if (photos.length > 0) { renderReview(); show('review-screen'); }
+document.getElementById('col-back-btn').addEventListener('click', () => {
+  renderHome(); show('home-screen');
 });
-document.getElementById('open-all-btn').addEventListener('click', () => openAllFolders());
-document.getElementById('add-folder-btn').addEventListener('click', () => pickAndAddFolder(true));
-document.getElementById('add-folder-review-btn').addEventListener('click', () => pickAndAddFolder(true));
 
-// ═══════════════════════════════════════════════════════
-//  FILE SYSTEM ACCESS — read images + permissions
-// ═══════════════════════════════════════════════════════
-async function ensurePermission(handle) {
-  let p = await handle.queryPermission({ mode: 'read' });
-  if (p !== 'granted') p = await handle.requestPermission({ mode: 'read' });
-  return p === 'granted';
-}
-async function readImagesFromHandle(handle) {
-  if (!(await ensurePermission(handle)))
-    throw new Error('Permissão negada para a pasta "' + handle.name + '".');
-  const imgs = [];
-  for await (const [, fh] of handle) {
-    if (fh.kind !== 'file') continue;
-    const f = await fh.getFile();
-    if (f.type.startsWith('image/')) imgs.push(f);
-  }
-  return imgs;
-}
-
-// Pick a folder, remember it, and load it (append = add to current photos)
-async function pickAndAddFolder(append) {
-  hideUploadError();
-  if (!('showDirectoryPicker' in window)) {
-    // Fallback: webkitdirectory input (can't be remembered between sessions)
-    pendingAppend = append;
-    folderInput.click();
-    return;
-  }
+document.getElementById('col-add-folder-btn').addEventListener('click', async () => {
+  if (!('showDirectoryPicker' in window)) { document.getElementById('folder-input').click(); return; }
   let handle;
-  try {
-    handle = await window.showDirectoryPicker({ mode: 'read' });
-  } catch (e) {
-    if (e.name !== 'AbortError') showUploadError('Erro ao abrir a pasta: ' + (e.message || e));
-    return;
-  }
+  try { handle = await window.showDirectoryPicker({ mode: 'readwrite' }); }
+  catch(e) { if (e.name !== 'AbortError') showColError('Erro ao abrir pasta: ' + (e.message||e)); return; }
+  // Don't add the same folder twice
+  if (!editingCol.handles.some(h => h.name === handle.name)) editingCol.handles.push(handle);
+  renderSourceList();
+});
 
-  let imgs;
-  try {
-    imgs = await readImagesFromHandle(handle);
-  } catch (e) {
-    showUploadError(e.message || String(e));
-    return;
-  }
-  if (!imgs.length) { showUploadError('Nenhuma imagem encontrada nessa pasta.'); return; }
-
-  // Remember the folder (replace if a folder with the same name already exists)
-  const exists = savedHandles.some(h => h.name === handle.name);
-  savedHandles = exists ? savedHandles.map(h => h.name === handle.name ? handle : h)
-                        : [...savedHandles, handle];
-  await persistHandles();
-  renderFoldersList();
-
-  show('processing-screen');
-  buildPhotoObjects(imgs, { append: append && photos.length > 0 });
-  processPhotos(true);
-}
-
-// Open every saved folder, combined into one slideshow
-async function openAllFolders() {
-  hideUploadError();
-  if (!savedHandles.length) return;
-  show('processing-screen');
-  document.getElementById('processing-label').textContent = 'Lendo arquivos das pastas…';
-  document.getElementById('progress-fill').style.width = '0%';
-  document.getElementById('progress-text').textContent = 'Aguarde…';
-
-  let all = [];
-  const failed = [];
-  for (const h of savedHandles) {
-    try { all = all.concat(await readImagesFromHandle(h)); }
-    catch (e) { console.warn(e); failed.push(h.name); }
-  }
-  if (!all.length) {
-    show('upload-screen');
-    showUploadError('Nenhuma imagem encontrada nas pastas salvas.' +
-      (failed.length ? ' Não consegui ler: ' + failed.join(', ') + '.' : ''));
-    return;
-  }
-  buildPhotoObjects(all, { append: false });
-  processPhotos(true);
-}
-
-// ═══════════════════════════════════════════════════════
-//  UPLOAD SCREEN — dropzone / file inputs
-// ═══════════════════════════════════════════════════════
-const folderInput = document.getElementById('folder-input');
-folderInput.setAttribute('webkitdirectory', '');
-
-document.getElementById('pick-folder-btn').addEventListener('click', () => pickAndAddFolder(false));
-document.getElementById('pick-files-btn').addEventListener('click', () => {
-  hideUploadError();
+document.getElementById('col-add-files-btn').addEventListener('click', () => {
   document.getElementById('files-input').click();
 });
 
-folderInput.addEventListener('change', e => {
-  const files = Array.from(e.target.files).filter(f => f.type.startsWith('image/'));
-  if (!files.length) { showUploadError('Nenhuma imagem encontrada.'); return; }
-  hideUploadError();
-  show('processing-screen');
-  buildPhotoObjects(files, { append: pendingAppend && photos.length > 0 });
-  pendingAppend = false;
-  processPhotos(true);
-});
 document.getElementById('files-input').addEventListener('change', e => {
   const files = Array.from(e.target.files).filter(f => f.type.startsWith('image/'));
-  if (!files.length) { showUploadError('Nenhuma imagem encontrada.'); return; }
-  hideUploadError();
-  show('processing-screen');
-  buildPhotoObjects(files, { append: false });
-  processPhotos(true);
+  editingPendingFiles = [...editingPendingFiles, ...files];
+  // Reset input so the same files can be picked again
+  e.target.value = '';
+  renderSourceList();
 });
 
-// Drag & drop (one folder/group at a time)
-const dz = document.getElementById('dropzone');
-dz.addEventListener('dragover',  e => { e.preventDefault(); dz.classList.add('over'); });
-dz.addEventListener('dragleave', () => dz.classList.remove('over'));
-dz.addEventListener('drop', e => {
-  e.preventDefault(); dz.classList.remove('over'); hideUploadError();
-  const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
-  if (!files.length) { showUploadError('Nenhuma imagem encontrada.'); return; }
-  show('processing-screen');
-  buildPhotoObjects(files, { append: false });
-  processPhotos(true);
+// webkitdirectory fallback
+const folderInput = document.getElementById('folder-input');
+folderInput.setAttribute('webkitdirectory', '');
+folderInput.addEventListener('change', e => {
+  const files = Array.from(e.target.files).filter(f => f.type.startsWith('image/'));
+  if (!files.length) return;
+  editingPendingFiles = [...editingPendingFiles, ...files];
+  e.target.value = '';
+  renderSourceList();
 });
 
-// Build photo objects, applying cached sizes, optionally appending + de-duping by filename
-function buildPhotoObjects(files, { append }) {
-  if (!append) {
-    photos.forEach(p => URL.revokeObjectURL(p.url));
-    photos = [];
+document.getElementById('col-open-btn').addEventListener('click', async () => {
+  const name = document.getElementById('col-name-input').value.trim() || 'Sem nome';
+  editingCol.name = name;
+
+  // Save/update collection in list
+  const existing = collections.find(c => c.id === editingCol.id);
+  if (existing) { existing.name = editingCol.name; existing.handles = editingCol.handles; }
+  else { collections.push({ id: editingCol.id, name: editingCol.name, handles: editingCol.handles }); }
+  await saveCollections();
+
+  // Load and process
+  await openCollection({ id: editingCol.id, name: editingCol.name, handles: editingCol.handles }, editingPendingFiles);
+});
+
+function showColError(msg) {
+  const el = document.getElementById('col-error');
+  el.textContent = msg; el.style.display = 'block';
+}
+
+// ═══════════════════════════════════════════════════
+//  FILE SYSTEM ACCESS
+// ═══════════════════════════════════════════════════
+async function ensurePermission(handle) {
+  let p = await handle.queryPermission({ mode: 'readwrite' });
+  if (p !== 'granted') p = await handle.requestPermission({ mode: 'readwrite' });
+  return p === 'granted';
+}
+async function readImagesFromHandle(handle) {
+  if (!(await ensurePermission(handle))) throw new Error('Permissão negada para "' + handle.name + '".');
+  const imgs = []; let legendas = null;
+  for await (const [name, fh] of handle) {
+    if (fh.kind !== 'file') continue;
+    if (name === 'legendas.json') { try { legendas = JSON.parse(await (await fh.getFile()).text()); } catch {} continue; }
+    const f = await fh.getFile();
+    if (f.type.startsWith('image/')) imgs.push(f);
   }
-  const existing = new Set(photos.map(p => p.file.name));
+  return { files: imgs, legendas };
+}
+async function writeLegendasJson(handle, data) {
+  try { const fh = await handle.getFileHandle('legendas.json',{create:true}); const w=await fh.createWritable(); await w.write(JSON.stringify(data,null,2)); await w.close(); }
+  catch(e) { console.warn('legendas.json write failed:', e); }
+}
+
+// ═══════════════════════════════════════════════════
+//  OPEN COLLECTION → load photos → process
+// ═══════════════════════════════════════════════════
+async function openCollection(col, pendingFiles) {
+  show('processing-screen');
+  document.getElementById('processing-label').textContent = 'Lendo arquivos de "' + col.name + '"…';
+  document.getElementById('progress-fill').style.width = '0%';
+  document.getElementById('progress-text').textContent = 'Aguarde…';
+
+  const groups = [];
+  const failed = [];
+  for (const h of col.handles) {
+    try { const r = await readImagesFromHandle(h); if (r.files.length) groups.push({ files: r.files, handle: h, legendas: r.legendas }); }
+    catch(e) { failed.push(h.name); }
+  }
+  if (pendingFiles && pendingFiles.length) {
+    groups.push({ files: pendingFiles, handle: null, legendas: null });
+  }
+  if (!groups.length) {
+    show('home-screen');
+    showHomeMsg('Não foi possível abrir os arquivos.' + (failed.length ? ' (' + failed.join(', ') + ')' : ''), true);
+    return;
+  }
+  buildPhotoObjects(groups);
+  document.getElementById('review-title').textContent = col.name;
+  processPhotos(true);
+}
+
+async function playAll() {
+  if (!collections.length) return;
+  show('processing-screen');
+  document.getElementById('processing-label').textContent = 'Carregando todas as coleções…';
+  document.getElementById('progress-fill').style.width = '0%';
+  document.getElementById('progress-text').textContent = 'Aguarde…';
+  const groups = [];
+  for (const col of collections) {
+    for (const h of col.handles) {
+      try { const r = await readImagesFromHandle(h); if (r.files.length) groups.push({ files: r.files, handle: h, legendas: r.legendas }); }
+      catch {}
+    }
+  }
+  if (!groups.length) { show('home-screen'); showHomeMsg('Não foi possível abrir nenhuma pasta.', true); return; }
+  buildPhotoObjects(groups);
+  document.getElementById('review-title').textContent = 'Todas as coleções';
+  pendingAutoPlay = true;
+  processPhotos(true);
+}
+
+// ═══════════════════════════════════════════════════
+//  BUILD PHOTOS
+// ═══════════════════════════════════════════════════
+function buildPhotoObjects(groups) {
+  photos.forEach(p => URL.revokeObjectURL(p.url)); photos = []; removedByFolder = new Map();
+  const existing = new Set();
   const sizeCache = loadSizeCache();
-  files.slice().sort((a, b) => a.name.localeCompare(b.name)).forEach(f => {
-    if (existing.has(f.name)) return;   // skip duplicates across folders
-    existing.add(f.name);
-    photos.push({
-      file: f,
-      url: URL.createObjectURL(f),
-      name: f.name.replace(/\.[^.]+$/, ''),
-      year: null, month: null, city: null, country: null, caption: '',
-      capScale: sizeCache[f.name] || 1
+  groups.forEach(({ files, handle, legendas }) => {
+    const lMap = legendas?.fotos || {};
+    const excluded = new Set(legendas?.excluidas || []);
+    if (handle && excluded.size) {
+      if (!removedByFolder.has(handle.name)) removedByFolder.set(handle.name, new Set());
+      excluded.forEach(n => removedByFolder.get(handle.name).add(n));
+    }
+    files.slice().sort((a,b) => a.name.localeCompare(b.name)).forEach(f => {
+      if (existing.has(f.name) || excluded.has(f.name)) return;
+      existing.add(f.name);
+      const ld = lMap[f.name];
+      photos.push({ file:f, url:URL.createObjectURL(f), name:f.name.replace(/\.[^.]+$/,''),
+        year:null, month:null, city:null, country:null, caption:'',
+        capScale: ld?.tamanho || sizeCache[f.name] || 1,
+        folderHandle: handle||null, _fromJson: ld?.dados||null });
     });
   });
 }
 
-// ═══════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════
+//  SAVE LEGENDAS
+// ═══════════════════════════════════════════════════
+let saveTimer = null;
+async function saveLegendasToFolders() {
+  const byFolder = new Map();
+  photos.forEach(p => {
+    if (!p.folderHandle) return;
+    if (!byFolder.has(p.folderHandle.name)) byFolder.set(p.folderHandle.name, { handle:p.folderHandle, fotos:{} });
+    byFolder.get(p.folderHandle.name).fotos[p.file.name] = { dados:p.caption||'', tamanho:p.capScale||1 };
+  });
+  for (const [name, removed] of removedByFolder) {
+    if (!byFolder.has(name)) {
+      const h = collections.flatMap(c=>c.handles).find(h=>h.name===name);
+      if (h) byFolder.set(name, { handle:h, fotos:{} });
+    }
+    if (byFolder.has(name)) byFolder.get(name).excluidas = [...removed];
+  }
+  for (const { handle, fotos, excluidas } of byFolder.values())
+    await writeLegendasJson(handle, { atualizado:new Date().toLocaleDateString('pt-BR'), excluidas:excluidas||[], fotos });
+  flushCaptionsToCache();
+}
+function scheduleSave() { clearTimeout(saveTimer); saveTimer = setTimeout(()=>saveLegendasToFolders(), 1500); }
+
+// ═══════════════════════════════════════════════════
 //  PROCESSING
-// ═══════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════
 async function processPhotos(alreadyOnProcessing) {
   if (!alreadyOnProcessing) show('processing-screen');
-
   const captionCache = loadCaptionCache();
-
-  // Apply cached captions; collect indices that still need Claude
   const uncachedIdxs = [];
-  photos.forEach((p, i) => {
-    const cached = captionCache[p.file.name];
-    if (cached) {
-      p.caption = cached;
-      try {
-        const c = JSON.parse(cached);
-        p.year    = c.date ? c.date.split('.')[0] : null;
-        p.month   = c.date && c.date.includes('.') ? c.date.split('.')[1] : null;
-        p.city    = c.city    || null;
-        p.country = c.country || null;
-      } catch {}
-    } else {
-      uncachedIdxs.push(i);
-    }
+  photos.forEach((p,i) => {
+    const caption = p._fromJson || captionCache[p.file.name];
+    if (caption) {
+      p.caption = caption;
+      try { const c=JSON.parse(caption); p.year=c.date?c.date.split('.')[0]:null; p.month=c.date?.includes('.')?c.date.split('.')[1]:null; p.city=c.city||null; p.country=c.country||null; } catch {}
+    } else { uncachedIdxs.push(i); }
   });
 
-  if (uncachedIdxs.length === 0) {
-    document.getElementById('progress-fill').style.width = '100%';
-    document.getElementById('progress-text').textContent = 'Todas as legendas já estavam salvas!';
-    await sleep(500);
-    reviewPage = 0;
-    renderReview();
-    show('review-screen');
-    return;
+  const finish = async () => {
+    reviewPage=0; renderReview(); show('review-screen');
+    if (pendingAutoPlay) { pendingAutoPlay=false; startPlayer(true); }
+    else await saveLegendasToFolders();
+  };
+
+  if (uncachedIdxs.length===0) {
+    document.getElementById('progress-fill').style.width='100%';
+    document.getElementById('progress-text').textContent='Todas as legendas já estavam salvas!';
+    await sleep(500); await finish(); return;
   }
 
   document.getElementById('processing-label').textContent =
-    `${uncachedIdxs.length} fotos novas · ${photos.length - uncachedIdxs.length} já processadas`;
-
+    `${uncachedIdxs.length} fotos novas · ${photos.length-uncachedIdxs.length} já processadas`;
   const batches = [];
-  for (let i = 0; i < uncachedIdxs.length; i += BATCH) batches.push(uncachedIdxs.slice(i, i + BATCH));
-
-  let done = 0;
-  for (let bi = 0; bi < batches.length; bi++) {
-    const batch = batches[bi];                       // global photo indices
-    const filenames = batch.map(gi => photos[gi].name);
-
+  for (let i=0; i<uncachedIdxs.length; i+=BATCH) batches.push(uncachedIdxs.slice(i,i+BATCH));
+  let done=0;
+  for (let bi=0; bi<batches.length; bi++) {
+    const batch=batches[bi], filenames=batch.map(gi=>photos[gi].name);
     try {
       const result = await callClaude(filenames);
-      if (result && Array.isArray(result)) {
-        result.forEach(r => {
-          const gi = batch[r.i];
-          if (gi !== undefined && gi < photos.length) {
-            const caption = buildCaption(r.year, r.month, r.city, r.country);
-            photos[gi].year    = r.year    || null;
-            photos[gi].month   = r.month   || null;
-            photos[gi].city    = r.city    || null;
-            photos[gi].country = r.country || null;
-            photos[gi].caption = caption;
-            captionCache[photos[gi].file.name] = caption;
-          }
-        });
-      }
-    } catch(e) {
-      console.warn('Batch', bi, 'failed:', e);
-    }
-
-    done = Math.min((bi + 1) * BATCH, uncachedIdxs.length);
-    const pct = Math.round((done / uncachedIdxs.length) * 100);
-    document.getElementById('progress-fill').style.width = pct + '%';
-    document.getElementById('progress-text').textContent =
-      `Lote ${bi + 1} de ${batches.length} — ${done} / ${uncachedIdxs.length} fotos (${pct}%)`;
-
-    if (bi < batches.length - 1) await sleep(400);
+      if (result && Array.isArray(result)) result.forEach(r => {
+        const gi=batch[r.i];
+        if (gi!==undefined && gi<photos.length) {
+          const caption=buildCaption(r.year,r.month,r.city,r.country);
+          photos[gi].year=r.year||null; photos[gi].month=r.month||null;
+          photos[gi].city=r.city||null; photos[gi].country=r.country||null;
+          photos[gi].caption=caption; captionCache[photos[gi].file.name]=caption;
+        }
+      });
+    } catch(e) { console.warn('Batch',bi,'failed:',e); }
+    done=Math.min((bi+1)*BATCH,uncachedIdxs.length);
+    const pct=Math.round(done/uncachedIdxs.length*100);
+    document.getElementById('progress-fill').style.width=pct+'%';
+    document.getElementById('progress-text').textContent=`Lote ${bi+1} de ${batches.length} — ${done} / ${uncachedIdxs.length} fotos (${pct}%)`;
+    if (bi<batches.length-1) await sleep(400);
   }
-
   saveCaptionCache(captionCache);
-
-  reviewPage = 0;
-  renderReview();
-  show('review-screen');
+  await finish();
 }
 
 async function callClaude(filenames) {
   const prompt = `Extract year, month, city, country from these ${filenames.length} photo filenames (index:name):\n`
-    + filenames.map((f, i) => `${i}:${f}`).join('\n')
+    + filenames.map((f,i)=>`${i}:${f}`).join('\n')
     + `\n\nReturn ONLY a JSON array: [{"i":0,"year":"1992","month":"08","city":"Paris","country":"França"},...]`
-    + `\nRules: year=4-digit (1900-2030) or null; month=2-digit ("01"-"12") or null; city=city name or null; country in Portuguese (França, Itália, Espanha, Brasil, etc.) or null.`;
-
+    + `\nRules: year=4-digit (1900-2030) or null; month=2-digit or null; city=city name or null; country in Portuguese or null.`;
   const resp = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true'
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 2048,
-      system: `You extract photo metadata from filenames. Return ONLY valid JSON array, no explanation. Country names in Portuguese.`,
-      messages: [{ role: 'user', content: prompt }]
-    })
+    method:'POST',
+    headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+    body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:2048,
+      system:'You extract photo metadata from filenames. Return ONLY valid JSON array, no explanation. Country names in Portuguese.',
+      messages:[{role:'user',content:prompt}]})
   });
-
-  if (!resp.ok) {
-    const txt = await resp.text();
-    throw new Error(`API ${resp.status}: ${txt}`);
-  }
-
-  const data = await resp.json();
-  const text = data.content?.[0]?.text || '';
-  const m = text.match(/\[[\s\S]*\]/);
+  if (!resp.ok) { const txt=await resp.text(); throw new Error(`API ${resp.status}: ${txt}`); }
+  const data=await resp.json();
+  const m=(data.content?.[0]?.text||'').match(/\[[\s\S]*\]/);
   if (!m) throw new Error('No JSON in response');
   return JSON.parse(m[0]);
 }
 
-function buildCaption(year, month, city, country) {
-  return JSON.stringify({
-    date: year ? (month ? `${year}.${month}` : year) : null,
-    city: city || null,
-    country: country || null,
-  });
+function buildCaption(year,month,city,country) {
+  return JSON.stringify({date:year?(month?`${year}.${month}`:year):null,city:city||null,country:country||null});
 }
-
 function renderCaption(p) {
-  try {
-    const c = JSON.parse(p.caption);
-    const main = [c.date, c.city].filter(Boolean).join(' ');
-    const country = c.country ? ` <span class="cap-country">[${c.country}]</span>` : '';
-    return main ? main + country : '';
-  } catch {
-    return p.caption || '';
+  try { const c=JSON.parse(p.caption); const main=[c.date,c.city].filter(Boolean).join(' '); return main?main+(c.country?` <span class="cap-country">[${c.country}]</span>`:''):''; }
+  catch { return p.caption||''; }
+}
+function captionToText(p) {
+  try { const c=JSON.parse(p.caption); return [c.date,c.city,c.country?`[${c.country}]`:''].filter(Boolean).join(' '); }
+  catch { return p.caption||''; }
+}
+const sleep = ms => new Promise(r=>setTimeout(r,ms));
+
+// ═══════════════════════════════════════════════════
+//  REVIEW
+// ═══════════════════════════════════════════════════
+function removePhoto(idx) {
+  const p=photos[idx]; if(!p) return;
+  if (p.folderHandle) {
+    if (!removedByFolder.has(p.folderHandle.name)) removedByFolder.set(p.folderHandle.name,new Set());
+    removedByFolder.get(p.folderHandle.name).add(p.file.name);
   }
+  URL.revokeObjectURL(p.url); photos.splice(idx,1);
+  const total=Math.ceil(photos.length/PAGE_SIZE);
+  if (reviewPage>=total && reviewPage>0) reviewPage=total-1;
+  renderReview(); scheduleSave();
 }
 
-function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
-
-// ═══════════════════════════════════════════════════════
-//  REVIEW
-// ═══════════════════════════════════════════════════════
 function renderReview() {
-  const parsed = photos.filter(p => p.caption).length;
+  const parsed=photos.filter(p=>p.caption).length;
   document.getElementById('review-stats').innerHTML =
-    `<span class="ok">${parsed}</span> com legenda · ` +
-    `<span class="${photos.length - parsed > 0 ? 'warn' : ''}">${photos.length - parsed}</span> sem legenda · ` +
-    `${photos.length} fotos no total`;
-
-  const grid = document.getElementById('photo-grid');
-  grid.innerHTML = '';
-  const slice = photos.slice(reviewPage * PAGE_SIZE, (reviewPage + 1) * PAGE_SIZE);
-  slice.forEach((p, i) => {
-    const globalIdx = reviewPage * PAGE_SIZE + i;
-    const card = document.createElement('div');
-    card.className = 'photo-card';
-    card.innerHTML = `
-      <div class="photo-thumb"><img src="${p.url}" loading="lazy" /></div>
-      <input class="photo-caption" type="text" value="${escHtml(captionToText(p))}" placeholder="sem legenda" data-idx="${globalIdx}" />
+    `<span class="ok">${parsed}</span> com legenda · <span class="${photos.length-parsed>0?'warn':''}">${photos.length-parsed}</span> sem legenda · ${photos.length} fotos`;
+  const grid=document.getElementById('photo-grid');
+  grid.innerHTML='';
+  photos.slice(reviewPage*PAGE_SIZE,(reviewPage+1)*PAGE_SIZE).forEach((p,i)=>{
+    const gi=reviewPage*PAGE_SIZE+i;
+    const card=document.createElement('div'); card.className='photo-card';
+    card.innerHTML=`
+      <div class="photo-thumb">
+        <img src="${p.url}" loading="lazy" />
+        <button class="btn-remove-photo" data-idx="${gi}">✕</button>
+      </div>
+      <input class="photo-caption" type="text" value="${escHtml(captionToText(p))}" placeholder="sem legenda" data-idx="${gi}" />
       <div class="cap-size">
         <span class="cs-label">Tamanho</span>
-        <button class="cs-dec" data-idx="${globalIdx}" title="Menor">A−</button>
-        <span class="cs-val" data-idx="${globalIdx}">${Math.round((p.capScale || 1) * 100)}%</span>
-        <button class="cs-inc" data-idx="${globalIdx}" title="Maior">A+</button>
-      </div>
-    `;
+        <button class="cs-dec" data-idx="${gi}">A−</button>
+        <span class="cs-val" data-idx="${gi}">${Math.round((p.capScale||1)*100)}%</span>
+        <button class="cs-inc" data-idx="${gi}">A+</button>
+      </div>`;
     grid.appendChild(card);
   });
-
-  grid.querySelectorAll('.photo-caption').forEach(inp => {
-    inp.addEventListener('change', e => {
-      const idx = +e.target.dataset.idx;
-      photos[idx].caption = e.target.value;
-      const cache = loadCaptionCache();
-      cache[photos[idx].file.name] = e.target.value;
-      saveCaptionCache(cache);
-    });
-  });
-  grid.querySelectorAll('.cs-dec').forEach(b => b.addEventListener('click', e => bumpScale(+e.target.dataset.idx, -0.1)));
-  grid.querySelectorAll('.cs-inc').forEach(b => b.addEventListener('click', e => bumpScale(+e.target.dataset.idx, +0.1)));
-
-  const total = Math.ceil(photos.length / PAGE_SIZE);
-  const pag = document.getElementById('pagination');
-  pag.innerHTML = total > 1
-    ? `<button id="pag-prev" ${reviewPage === 0 ? 'disabled' : ''}>← Anterior</button>
-       <span>Página ${reviewPage + 1} de ${total}</span>
-       <button id="pag-next" ${reviewPage >= total - 1 ? 'disabled' : ''}>Próxima →</button>`
-    : '';
-  if (total > 1) {
-    pag.querySelector('#pag-prev')?.addEventListener('click', () => { reviewPage--; renderReview(); window.scrollTo(0,0); });
-    pag.querySelector('#pag-next')?.addEventListener('click', () => { reviewPage++; renderReview(); window.scrollTo(0,0); });
+  grid.querySelectorAll('.btn-remove-photo').forEach(b=>b.addEventListener('click',e=>removePhoto(+e.target.dataset.idx)));
+  grid.querySelectorAll('.photo-caption').forEach(inp=>inp.addEventListener('change',e=>{
+    const idx=+e.target.dataset.idx; photos[idx].caption=e.target.value;
+    const c=loadCaptionCache(); c[photos[idx].file.name]=e.target.value; saveCaptionCache(c);
+    scheduleSave();
+  }));
+  grid.querySelectorAll('.cs-dec').forEach(b=>b.addEventListener('click',e=>bumpScale(+e.target.dataset.idx,-0.1)));
+  grid.querySelectorAll('.cs-inc').forEach(b=>b.addEventListener('click',e=>bumpScale(+e.target.dataset.idx,+0.1)));
+  const total=Math.ceil(photos.length/PAGE_SIZE);
+  const pag=document.getElementById('pagination');
+  pag.innerHTML=total>1?`<button id="pag-prev" ${reviewPage===0?'disabled':''}>← Anterior</button><span>Página ${reviewPage+1} de ${total}</span><button id="pag-next" ${reviewPage>=total-1?'disabled':''}>Próxima →</button>`:'';
+  if (total>1) {
+    pag.querySelector('#pag-prev')?.addEventListener('click',()=>{reviewPage--;renderReview();window.scrollTo(0,0);});
+    pag.querySelector('#pag-next')?.addEventListener('click',()=>{reviewPage++;renderReview();window.scrollTo(0,0);});
   }
 }
 
-function bumpScale(idx, delta) {
-  const newScale = setPhotoScale(idx, (photos[idx].capScale || 1) + delta);
-  const valEl = document.querySelector(`.cs-val[data-idx="${idx}"]`);
-  if (valEl) valEl.textContent = Math.round(newScale * 100) + '%';
+function bumpScale(idx,delta) {
+  const s=setPhotoScale(idx,(photos[idx].capScale||1)+delta);
+  const el=document.querySelector(`.cs-val[data-idx="${idx}"]`); if(el) el.textContent=Math.round(s*100)+'%';
+  scheduleSave();
 }
-
+function setPhotoScale(idx,scale) {
+  scale=Math.min(MAX_SCALE,Math.max(MIN_SCALE,Math.round(scale*10)/10));
+  photos[idx].capScale=scale;
+  const c=loadSizeCache(); c[photos[idx].file.name]=scale; saveSizeCache(c);
+  return scale;
+}
 function escHtml(s) { return s.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
 
-document.getElementById('play-btn').addEventListener('click', () => startPlayer(false));
-document.getElementById('shuffle-btn').addEventListener('click', () => startPlayer(true));
-document.getElementById('back-btn').addEventListener('click', () => {
-  flushCaptionsToCache();
-  updateUploadUI();
-  show('upload-screen');
+document.getElementById('play-btn').addEventListener('click', ()=>startPlayer(false));
+document.getElementById('shuffle-btn').addEventListener('click', ()=>startPlayer(true));
+document.getElementById('back-btn').addEventListener('click', async ()=>{
+  await saveLegendasToFolders(); renderHome(); show('home-screen');
 });
 
-// ═══════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════
+//  API KEY + INIT
+// ═══════════════════════════════════════════════════
+document.getElementById('apikey-save-btn').addEventListener('click', ()=>{
+  const v=document.getElementById('apikey-input').value.trim();
+  const err=document.getElementById('apikey-error');
+  if (!v.startsWith('sk-ant-')) { err.textContent='A chave deve começar com "sk-ant-".'; err.style.display='block'; return; }
+  err.style.display='none'; apiKey=v; localStorage.setItem('slideshow_apikey',v); init();
+});
+document.getElementById('change-key-btn').addEventListener('click', ()=>{ document.getElementById('apikey-input').value=''; show('apikey-screen'); });
+document.getElementById('play-all-btn').addEventListener('click', playAll);
+
+async function init() {
+  if (!apiKey) { show('apikey-screen'); return; }
+  await loadCollections();
+  renderHome();
+  show('home-screen');
+}
+init();
+
+// ═══════════════════════════════════════════════════
 //  PLAYER
-// ═══════════════════════════════════════════════════════
-const playerEl   = document.getElementById('player');
-const imgEl      = document.getElementById('player-img');
-const capWrap    = document.getElementById('player-caption');
-const capText    = document.getElementById('player-caption-text');
-const clockEl    = document.getElementById('player-clock');
-const counterEl  = document.getElementById('player-counter');
-const fillEl     = document.getElementById('player-progress-fill');
-const controlsEl = document.getElementById('player-controls');
+// ═══════════════════════════════════════════════════
+const playerEl=document.getElementById('player'), imgEl=document.getElementById('player-img');
+const capWrap=document.getElementById('player-caption'), capText=document.getElementById('player-caption-text');
+const clockEl=document.getElementById('player-clock'), counterEl=document.getElementById('player-counter');
+const fillEl=document.getElementById('player-progress-fill'), controlsEl=document.getElementById('player-controls');
 
-function applyCapSize(p) {
-  capText.style.fontSize = `calc(clamp(1.8rem, 4.5vw, 4.2rem) * ${p.capScale || 1})`;
-}
-function applyCurrentCapSize() { applyCapSize(photos[order[pos]]); }
-
+function applyCapSize(p) { capText.style.fontSize=`calc(clamp(1.8rem, 4.5vw, 4.2rem) * ${p.capScale||1})`; }
 function startPlayer(shuffle) {
-  isShuffle = shuffle;
-  order = Array.from({length: photos.length}, (_,i) => i);
+  isShuffle=shuffle; order=Array.from({length:photos.length},(_,i)=>i);
   if (shuffle) shuffleArr(order);
-  pos = 0;
-  isPlaying = true;
-  showCap = true;
-  speed = 6;
-  document.getElementById('pc-speed-slider').value = 6;
-  document.getElementById('pc-speed-label').textContent = '6s';
-  document.getElementById('pc-shuffle').classList.toggle('dimmed', !isShuffle);
-  document.getElementById('pc-caption').classList.toggle('dimmed', !showCap);
-
-  playerEl.classList.add('active');
-  playerEl.style.cursor = 'none';
-  displayPhoto(true);
-  startAutoPlay();
-  startClock();
-  revealControls();
+  pos=0; isPlaying=true; showCap=true; speed=6;
+  document.getElementById('pc-speed-slider').value=6; document.getElementById('pc-speed-label').textContent='6s';
+  document.getElementById('pc-shuffle').classList.toggle('dimmed',!isShuffle);
+  document.getElementById('pc-caption').classList.toggle('dimmed',!showCap);
+  playerEl.classList.add('active'); playerEl.style.cursor='none';
+  displayPhoto(true); startAutoPlay(); startClock(); revealControls();
 }
-
 function displayPhoto(immediate) {
-  const p = photos[order[pos]];
-  const kbName = kbAnims[order[pos] % kbAnims.length];
-  const totalSpeed = (speed + 3);
-
+  const p=photos[order[pos]], kbName=kbAnims[order[pos]%kbAnims.length], ts=speed+3;
   if (immediate) {
-    imgEl.style.opacity = '1';
-    imgEl.src = p.url;
-    imgEl.style.animation = `${kbName} ${totalSpeed}s ease-in-out both`;
-    capText.innerHTML = renderCaption(p);
-    applyCapSize(p);
-    capWrap.style.opacity = renderCaption(p) && showCap ? '1' : '0';
+    imgEl.style.opacity='1'; imgEl.src=p.url; imgEl.style.animation=`${kbName} ${ts}s ease-in-out both`;
+    capText.innerHTML=renderCaption(p); applyCapSize(p);
+    capWrap.style.opacity=renderCaption(p)&&showCap?'1':'0';
   } else {
-    imgEl.style.opacity = '0';
-    capWrap.style.opacity = '0';
-    setTimeout(() => {
-      imgEl.src = p.url;
-      imgEl.style.animation = 'none';
-      void imgEl.offsetWidth;
-      imgEl.style.animation = `${kbName} ${totalSpeed}s ease-in-out both`;
-      capText.innerHTML = renderCaption(p);
-      applyCapSize(p);
-      imgEl.style.opacity = '1';
-      capWrap.style.opacity = renderCaption(p) && showCap ? '1' : '0';
-    }, 700);
+    imgEl.style.opacity='0'; capWrap.style.opacity='0';
+    setTimeout(()=>{ imgEl.src=p.url; imgEl.style.animation='none'; void imgEl.offsetWidth;
+      imgEl.style.animation=`${kbName} ${ts}s ease-in-out both`;
+      capText.innerHTML=renderCaption(p); applyCapSize(p);
+      imgEl.style.opacity='1'; capWrap.style.opacity=renderCaption(p)&&showCap?'1':'0'; },700);
   }
-
-  fillEl.style.width = ((pos + 1) / order.length * 100) + '%';
-  counterEl.textContent = `${pos + 1} / ${order.length}`;
+  fillEl.style.width=((pos+1)/order.length*100)+'%';
+  counterEl.textContent=`${pos+1} / ${order.length}`;
 }
-
-function advance(dir) {
-  pos = (pos + dir + order.length) % order.length;
-  displayPhoto(false);
-  if (isPlaying) startAutoPlay();
-}
-
-function startAutoPlay() {
-  clearTimeout(autoTimer);
-  if (isPlaying) autoTimer = setTimeout(() => advance(1), speed * 1000);
-}
-
-let clockInterval;
+function advance(dir) { pos=(pos+dir+order.length)%order.length; displayPhoto(false); if(isPlaying)startAutoPlay(); }
+function startAutoPlay() { clearTimeout(autoTimer); if(isPlaying)autoTimer=setTimeout(()=>advance(1),speed*1000); }
 function startClock() {
   clearInterval(clockInterval);
-  clockInterval = setInterval(() => {
-    clockEl.textContent = new Date().toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
-  }, 1000);
-  clockEl.textContent = new Date().toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
+  const tick=()=>clockEl.textContent=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  clockInterval=setInterval(tick,1000); tick();
 }
-
-function stopPlayer() {
-  clearTimeout(autoTimer);
-  clearInterval(clockInterval);
-  playerEl.classList.remove('active');
-}
-
+function stopPlayer() { clearTimeout(autoTimer); clearInterval(clockInterval); playerEl.classList.remove('active'); }
 function revealControls() {
-  playerEl.style.cursor = 'default';
-  controlsEl.classList.remove('hidden');
-  clearTimeout(ctrlTimer);
-  ctrlTimer = setTimeout(() => {
-    controlsEl.classList.add('hidden');
-    playerEl.style.cursor = 'none';
-  }, 3500);
+  playerEl.style.cursor='default'; controlsEl.classList.remove('hidden');
+  clearTimeout(ctrlTimer); ctrlTimer=setTimeout(()=>{controlsEl.classList.add('hidden');playerEl.style.cursor='none';},3500);
 }
-
-playerEl.addEventListener('mousemove', revealControls);
-playerEl.addEventListener('click', revealControls);
-
-document.getElementById('pc-prev').addEventListener('click', e => { e.stopPropagation(); advance(-1); });
-document.getElementById('pc-next').addEventListener('click', e => { e.stopPropagation(); advance(1); });
-
-document.getElementById('pc-playpause').addEventListener('click', e => {
-  e.stopPropagation();
-  isPlaying = !isPlaying;
-  document.getElementById('pc-playpause').textContent = isPlaying ? '⏸' : '▶';
-  startAutoPlay();
-});
-
-document.getElementById('pc-caption').addEventListener('click', e => {
-  e.stopPropagation();
-  showCap = !showCap;
-  e.target.classList.toggle('dimmed', !showCap);
-  const p = photos[order[pos]];
-  capWrap.style.opacity = renderCaption(p) && showCap ? '1' : '0';
-});
-
-document.getElementById('pc-cap-smaller').addEventListener('click', e => { e.stopPropagation(); adjustCurrentScale(-0.1); });
-document.getElementById('pc-cap-bigger').addEventListener('click', e => { e.stopPropagation(); adjustCurrentScale(+0.1); });
-
-function adjustCurrentScale(delta) {
-  const gi = order[pos];
-  setPhotoScale(gi, (photos[gi].capScale || 1) + delta);
-  applyCurrentCapSize();
-}
-
-document.getElementById('pc-shuffle').addEventListener('click', e => {
-  e.stopPropagation();
-  isShuffle = !isShuffle;
-  e.target.classList.toggle('dimmed', !isShuffle);
-  if (isShuffle) shuffleArr(order); else order = Array.from({length:photos.length},(_,i)=>i);
-  pos = 0;
-  displayPhoto(false);
-});
-
-document.getElementById('pc-speed-slider').addEventListener('input', e => {
-  e.stopPropagation();
-  speed = +e.target.value;
-  document.getElementById('pc-speed-label').textContent = speed + 's';
-  startAutoPlay();
-});
-document.getElementById('pc-speed-slider').addEventListener('click', e => e.stopPropagation());
-
-document.getElementById('pc-fullscreen').addEventListener('click', e => {
-  e.stopPropagation();
-  if (!document.fullscreenElement) playerEl.requestFullscreen();
-  else document.exitFullscreen();
-});
-
-document.getElementById('pc-exit').addEventListener('click', e => {
-  e.stopPropagation();
-  if (document.fullscreenElement) document.exitFullscreen();
-  stopPlayer();
-  show('review-screen');
-});
-
-// Keyboard
-document.addEventListener('keydown', e => {
-  if (!playerEl.classList.contains('active')) return;
-  revealControls();
-  switch(e.key) {
-    case 'ArrowRight': case 'ArrowDown':  advance(1);  break;
-    case 'ArrowLeft':  case 'ArrowUp':    advance(-1); break;
-    case ' ':
-      e.preventDefault();
-      isPlaying = !isPlaying;
-      document.getElementById('pc-playpause').textContent = isPlaying ? '⏸' : '▶';
-      startAutoPlay();
-      break;
-    case 'c': case 'C':
-      showCap = !showCap;
-      document.getElementById('pc-caption').classList.toggle('dimmed', !showCap);
-      capWrap.style.opacity = renderCaption(photos[order[pos]]) && showCap ? '1' : '0';
-      break;
-    case '+': case '=':
-      e.preventDefault(); adjustCurrentScale(+0.1); break;
-    case '-': case '_':
-      e.preventDefault(); adjustCurrentScale(-0.1); break;
-    case 's': case 'S':
-      isShuffle = !isShuffle;
-      document.getElementById('pc-shuffle').classList.toggle('dimmed', !isShuffle);
-      if (isShuffle) shuffleArr(order); else order = Array.from({length:photos.length},(_,i)=>i);
-      pos = 0; displayPhoto(false);
-      break;
-    case 'f': case 'F':
-      if (!document.fullscreenElement) playerEl.requestFullscreen();
-      else document.exitFullscreen();
-      break;
-    case 'Escape':
-      if (!document.fullscreenElement) { stopPlayer(); show('review-screen'); }
-      break;
+playerEl.addEventListener('mousemove',revealControls);
+playerEl.addEventListener('click',revealControls);
+document.getElementById('pc-prev').addEventListener('click',e=>{e.stopPropagation();advance(-1);});
+document.getElementById('pc-next').addEventListener('click',e=>{e.stopPropagation();advance(1);});
+document.getElementById('pc-playpause').addEventListener('click',e=>{e.stopPropagation();isPlaying=!isPlaying;document.getElementById('pc-playpause').textContent=isPlaying?'⏸':'▶';startAutoPlay();});
+document.getElementById('pc-caption').addEventListener('click',e=>{e.stopPropagation();showCap=!showCap;e.target.classList.toggle('dimmed',!showCap);capWrap.style.opacity=renderCaption(photos[order[pos]])&&showCap?'1':'0';});
+document.getElementById('pc-cap-smaller').addEventListener('click',e=>{e.stopPropagation();adjustCurrentScale(-0.1);});
+document.getElementById('pc-cap-bigger').addEventListener('click',e=>{e.stopPropagation();adjustCurrentScale(+0.1);});
+function adjustCurrentScale(delta){const gi=order[pos];setPhotoScale(gi,(photos[gi].capScale||1)+delta);applyCapSize(photos[gi]);scheduleSave();}
+document.getElementById('pc-shuffle').addEventListener('click',e=>{e.stopPropagation();isShuffle=!isShuffle;e.target.classList.toggle('dimmed',!isShuffle);if(isShuffle)shuffleArr(order);else order=Array.from({length:photos.length},(_,i)=>i);pos=0;displayPhoto(false);});
+document.getElementById('pc-speed-slider').addEventListener('input',e=>{e.stopPropagation();speed=+e.target.value;document.getElementById('pc-speed-label').textContent=speed+'s';startAutoPlay();});
+document.getElementById('pc-speed-slider').addEventListener('click',e=>e.stopPropagation());
+document.getElementById('pc-fullscreen').addEventListener('click',e=>{e.stopPropagation();if(!document.fullscreenElement)playerEl.requestFullscreen();else document.exitFullscreen();});
+document.getElementById('pc-exit').addEventListener('click',e=>{e.stopPropagation();if(document.fullscreenElement)document.exitFullscreen();stopPlayer();show('review-screen');});
+document.addEventListener('keydown',e=>{
+  if(!playerEl.classList.contains('active'))return; revealControls();
+  switch(e.key){
+    case'ArrowRight':case'ArrowDown':advance(1);break;
+    case'ArrowLeft':case'ArrowUp':advance(-1);break;
+    case' ':e.preventDefault();isPlaying=!isPlaying;document.getElementById('pc-playpause').textContent=isPlaying?'⏸':'▶';startAutoPlay();break;
+    case'c':case'C':showCap=!showCap;document.getElementById('pc-caption').classList.toggle('dimmed',!showCap);capWrap.style.opacity=renderCaption(photos[order[pos]])&&showCap?'1':'0';break;
+    case'+':case'=':e.preventDefault();adjustCurrentScale(+0.1);break;
+    case'-':case'_':e.preventDefault();adjustCurrentScale(-0.1);break;
+    case's':case'S':isShuffle=!isShuffle;document.getElementById('pc-shuffle').classList.toggle('dimmed',!isShuffle);if(isShuffle)shuffleArr(order);else order=Array.from({length:photos.length},(_,i)=>i);pos=0;displayPhoto(false);break;
+    case'f':case'F':if(!document.fullscreenElement)playerEl.requestFullscreen();else document.exitFullscreen();break;
+    case'Escape':if(!document.fullscreenElement){stopPlayer();show('review-screen');}break;
   }
 });
-
-// ═══════════════════════════════════════════════════════
-//  UTILITIES
-// ═══════════════════════════════════════════════════════
-function captionToText(p) {
-  try {
-    const c = JSON.parse(p.caption);
-    return [c.date, c.city, c.country ? `[${c.country}]` : ''].filter(Boolean).join(' ');
-  } catch {
-    return p.caption || '';
-  }
-}
-
-function shuffleArr(arr) {
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
-  }
-}
+function shuffleArr(arr){for(let i=arr.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[arr[i],arr[j]]=[arr[j],arr[i]];}}
 </script>
 </body>
 </html>
