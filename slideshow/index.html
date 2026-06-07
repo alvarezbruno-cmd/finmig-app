@@ -184,9 +184,9 @@
     #player.active { display: block; }
     #player-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; transition: opacity .7s ease; }
     #player-bottom { position: absolute; bottom: 0; left: 0; right: 0; display: flex; flex-direction: column; }
-    #player-caption { padding: 18px 36px 16px; background: rgba(0,0,0,.72); transition: opacity .7s ease; }
-    #player-caption p { color: #fff; text-align: left; font-weight: 700; letter-spacing: .01em; font-size: clamp(1.8rem, 4.5vw, 4.2rem); line-height: 1.1; }
-    #player-caption p .cap-country { color: rgba(255,255,255,.55); font-weight: 400; }
+    #player-caption { padding: 90px 36px 28px; background: linear-gradient(to top, rgba(0,0,0,.92) 0%, rgba(0,0,0,.82) 35%, rgba(0,0,0,.45) 72%, transparent 100%); transition: opacity .7s ease; }
+    #player-caption p { color: #fff; text-align: left; font-weight: 700; letter-spacing: .01em; font-size: clamp(1.8rem, 4.5vw, 4.2rem); line-height: 1.1; text-shadow: 0 2px 10px rgba(0,0,0,.95), 0 0 4px rgba(0,0,0,.9), 0 1px 2px rgba(0,0,0,1); }
+    #player-caption p .cap-country { color: rgba(255,255,255,.6); font-weight: 400; }
     #player-clock { position: absolute; top: 28px; right: 36px; color: rgba(255,255,255,.3); font-size: clamp(.9rem, 1.6vw, 1.5rem); font-variant-numeric: tabular-nums; pointer-events: none; }
     #player-counter { position: absolute; top: 28px; left: 36px; color: rgba(255,255,255,.25); font-size: clamp(.75rem, 1.2vw, 1rem); pointer-events: none; }
     #player-progress { position: absolute; top: 0; left: 0; right: 0; height: 2px; background: rgba(255,255,255,.1); }
@@ -328,6 +328,12 @@
     <button class="pc-btn" id="pc-caption">𝗧</button>
     <button class="pc-btn small" id="pc-cap-smaller">A−</button>
     <button class="pc-btn small" id="pc-cap-bigger">A+</button>
+    <button class="pc-btn dimmed" id="pc-cap-auto" title="Legenda some sozinha">⧗</button>
+    <div class="pc-speed" id="pc-cap-time-wrap" style="display:none">
+      <span>⧗</span>
+      <input type="range" id="pc-cap-time-slider" min="2" max="20" step="1" value="5" />
+      <span id="pc-cap-time-label">5s</span>
+    </div>
     <button class="pc-btn dimmed" id="pc-shuffle">⇄</button>
     <div class="pc-speed">
       <span>⏱</span>
@@ -350,7 +356,7 @@
 // ═══════════════════════════════════════════════════
 //  STATE
 // ═══════════════════════════════════════════════════
-const APP_VERSION = 'v17 · 06/06';
+const APP_VERSION = 'v18 · 06/07';
 let apiKey = localStorage.getItem('slideshow_apikey') || '';
 
 // Collections: [{id, name, handles: [FileSystemDirectoryHandle]}]
@@ -376,6 +382,9 @@ const MIN_SCALE = 0.5, MAX_SCALE = 2.5;
 let order=[], pos=0, isPlaying=true, showCap=true;
 let isShuffle=false, speed=6;
 let autoTimer=null, ctrlTimer=null, clockInterval;
+let autoHideCap = localStorage.getItem('slideshow_autohide')==='1';
+let capHideTime = +(localStorage.getItem('slideshow_capHideTime')||5);
+let capHideTimer=null;
 const kbAnims = ['kb1','kb2','kb3','kb4','kb5','kb6'];
 
 // ═══════════════════════════════════════════════════
@@ -1127,6 +1136,14 @@ const clockEl=document.getElementById('player-clock'), counterEl=document.getEle
 const fillEl=document.getElementById('player-progress-fill'), controlsEl=document.getElementById('player-controls');
 
 function applyCapSize(p) { capText.style.fontSize=`calc(clamp(1.8rem, 4.5vw, 4.2rem) * ${p.capScale||1})`; }
+// Sets caption visibility honoring the manual toggle and the auto-hide option.
+// When auto-hide is on, the caption shows then fades out after capHideTime.
+function updateCaptionVisibility(p) {
+  clearTimeout(capHideTimer);
+  const visible = !!renderCaption(p) && showCap;
+  capWrap.style.opacity = visible ? '1' : '0';
+  if (visible && autoHideCap) capHideTimer=setTimeout(()=>{ capWrap.style.opacity='0'; }, capHideTime*1000);
+}
 function startPlayer(shuffle, startIdx) {
   const base=filteredIndices();
   if (!base.length) return;
@@ -1137,6 +1154,10 @@ function startPlayer(shuffle, startIdx) {
   document.getElementById('pc-speed-slider').value=6; document.getElementById('pc-speed-label').textContent='6s';
   document.getElementById('pc-shuffle').classList.toggle('dimmed',!isShuffle);
   document.getElementById('pc-caption').classList.toggle('dimmed',!showCap);
+  document.getElementById('pc-cap-auto').classList.toggle('dimmed',!autoHideCap);
+  document.getElementById('pc-cap-time-wrap').style.display=autoHideCap?'flex':'none';
+  document.getElementById('pc-cap-time-slider').value=capHideTime;
+  document.getElementById('pc-cap-time-label').textContent=capHideTime+'s';
   playerEl.classList.add('active'); playerEl.style.cursor='none';
   displayPhoto(true); startAutoPlay(); startClock(); revealControls();
 }
@@ -1145,13 +1166,13 @@ function displayPhoto(immediate) {
   if (immediate) {
     imgEl.style.opacity='1'; imgEl.src=p.url; imgEl.style.animation=`${kbName} ${ts}s ease-in-out both`;
     capText.innerHTML=renderCaption(p); applyCapSize(p);
-    capWrap.style.opacity=renderCaption(p)&&showCap?'1':'0';
+    updateCaptionVisibility(p);
   } else {
-    imgEl.style.opacity='0'; capWrap.style.opacity='0';
+    imgEl.style.opacity='0'; capWrap.style.opacity='0'; clearTimeout(capHideTimer);
     setTimeout(()=>{ imgEl.src=p.url; imgEl.style.animation='none'; void imgEl.offsetWidth;
       imgEl.style.animation=`${kbName} ${ts}s ease-in-out both`;
       capText.innerHTML=renderCaption(p); applyCapSize(p);
-      imgEl.style.opacity='1'; capWrap.style.opacity=renderCaption(p)&&showCap?'1':'0'; },700);
+      imgEl.style.opacity='1'; updateCaptionVisibility(p); },700);
   }
   fillEl.style.width=((pos+1)/order.length*100)+'%';
   counterEl.textContent=`${pos+1} / ${order.length}`;
@@ -1163,7 +1184,7 @@ function startClock() {
   const tick=()=>clockEl.textContent=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
   clockInterval=setInterval(tick,1000); tick();
 }
-function stopPlayer() { clearTimeout(autoTimer); clearInterval(clockInterval); playerEl.classList.remove('active'); }
+function stopPlayer() { clearTimeout(autoTimer); clearInterval(clockInterval); clearTimeout(capHideTimer); playerEl.classList.remove('active'); }
 function revealControls() {
   playerEl.style.cursor='default'; controlsEl.classList.remove('hidden');
   clearTimeout(ctrlTimer); ctrlTimer=setTimeout(()=>{controlsEl.classList.add('hidden');playerEl.style.cursor='none';},3500);
@@ -1173,7 +1194,10 @@ playerEl.addEventListener('click',revealControls);
 document.getElementById('pc-prev').addEventListener('click',e=>{e.stopPropagation();advance(-1);});
 document.getElementById('pc-next').addEventListener('click',e=>{e.stopPropagation();advance(1);});
 document.getElementById('pc-playpause').addEventListener('click',e=>{e.stopPropagation();isPlaying=!isPlaying;document.getElementById('pc-playpause').textContent=isPlaying?'⏸':'▶';startAutoPlay();});
-document.getElementById('pc-caption').addEventListener('click',e=>{e.stopPropagation();showCap=!showCap;e.target.classList.toggle('dimmed',!showCap);capWrap.style.opacity=renderCaption(photos[order[pos]])&&showCap?'1':'0';});
+document.getElementById('pc-caption').addEventListener('click',e=>{e.stopPropagation();showCap=!showCap;e.target.classList.toggle('dimmed',!showCap);updateCaptionVisibility(photos[order[pos]]);});
+document.getElementById('pc-cap-auto').addEventListener('click',e=>{e.stopPropagation();autoHideCap=!autoHideCap;e.currentTarget.classList.toggle('dimmed',!autoHideCap);localStorage.setItem('slideshow_autohide',autoHideCap?'1':'0');document.getElementById('pc-cap-time-wrap').style.display=autoHideCap?'flex':'none';updateCaptionVisibility(photos[order[pos]]);});
+document.getElementById('pc-cap-time-slider').addEventListener('input',e=>{e.stopPropagation();capHideTime=+e.target.value;document.getElementById('pc-cap-time-label').textContent=capHideTime+'s';localStorage.setItem('slideshow_capHideTime',capHideTime);updateCaptionVisibility(photos[order[pos]]);});
+document.getElementById('pc-cap-time-slider').addEventListener('click',e=>e.stopPropagation());
 document.getElementById('pc-cap-smaller').addEventListener('click',e=>{e.stopPropagation();adjustCurrentScale(-0.1);});
 document.getElementById('pc-cap-bigger').addEventListener('click',e=>{e.stopPropagation();adjustCurrentScale(+0.1);});
 function adjustCurrentScale(delta){const gi=order[pos];setPhotoScale(gi,(photos[gi].capScale||1)+delta);applyCapSize(photos[gi]);scheduleSave();}
@@ -1188,10 +1212,10 @@ document.addEventListener('keydown',e=>{
     case'ArrowRight':case'ArrowDown':advance(1);break;
     case'ArrowLeft':case'ArrowUp':advance(-1);break;
     case' ':e.preventDefault();isPlaying=!isPlaying;document.getElementById('pc-playpause').textContent=isPlaying?'⏸':'▶';startAutoPlay();break;
-    case'c':case'C':showCap=!showCap;document.getElementById('pc-caption').classList.toggle('dimmed',!showCap);capWrap.style.opacity=renderCaption(photos[order[pos]])&&showCap?'1':'0';break;
+    case'c':case'C':showCap=!showCap;document.getElementById('pc-caption').classList.toggle('dimmed',!showCap);updateCaptionVisibility(photos[order[pos]]);break;
     case'+':case'=':e.preventDefault();adjustCurrentScale(+0.1);break;
     case'-':case'_':e.preventDefault();adjustCurrentScale(-0.1);break;
-    case's':case'S':isShuffle=!isShuffle;document.getElementById('pc-shuffle').classList.toggle('dimmed',!isShuffle);if(isShuffle)shuffleArr(order);else order=Array.from({length:photos.length},(_,i)=>i);pos=0;displayPhoto(false);break;
+    case's':case'S':isShuffle=!isShuffle;document.getElementById('pc-shuffle').classList.toggle('dimmed',!isShuffle);if(isShuffle)shuffleArr(order);else order=filteredIndices();pos=0;displayPhoto(false);break;
     case'f':case'F':if(!document.fullscreenElement)playerEl.requestFullscreen();else document.exitFullscreen();break;
     case'Escape':if(!document.fullscreenElement){stopPlayer();show('review-screen');}break;
   }
