@@ -139,7 +139,8 @@
     .photo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; width: 100%; max-width: 1200px; }
     .photo-card { display: flex; flex-direction: column; gap: 6px; }
     .photo-thumb { aspect-ratio: 1; border-radius: 10px; overflow: hidden; background: var(--surface); position: relative; }
-    .photo-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .photo-thumb img, .photo-thumb video { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .video-badge { position: absolute; bottom: 6px; left: 6px; background: rgba(0,0,0,.78); color: #fff; border-radius: 6px; font-size: .72rem; font-weight: 700; padding: 3px 7px; pointer-events: none; }
     .btn-remove-photo { position: absolute; top: 6px; right: 6px; background: rgba(0,0,0,.75); border: none; border-radius: 50%; color: #fff; cursor: pointer; font-size: .8rem; font-weight: 700; width: 28px; height: 28px; line-height: 28px; text-align: center; opacity: 0; transition: opacity .15s, background .15s; }
     .photo-thumb:hover .btn-remove-photo { opacity: 1; }
     .btn-remove-photo:hover { background: rgba(200,40,40,.9); }
@@ -183,6 +184,9 @@
     #player { position: fixed; inset: 0; background: #000; z-index: 9999; overflow: hidden; display: none; }
     #player.active { display: block; }
     #player-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; transition: opacity .7s ease; }
+    #player-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background:#000; transition: opacity .7s ease; display: none; }
+    #player-video.shown { display: block; }
+    #player-img.gone { display: none; }
     #player-bottom { position: absolute; bottom: 0; left: 0; right: 0; display: flex; flex-direction: column; }
     #player-caption { padding: 18px 36px 18px; background: transparent; transition: opacity .7s ease; }
     #player-caption p { color: #fff; text-align: left; font-weight: 700; letter-spacing: .01em; font-size: clamp(1.8rem, 4.5vw, 4.2rem); line-height: 1.1;
@@ -318,6 +322,7 @@
 <div id="player">
   <div id="player-progress"><div id="player-progress-fill" style="width:0%"></div></div>
   <img id="player-img" src="" alt="" />
+  <video id="player-video" playsinline></video>
   <div id="player-bg-status" style="display:none; position:absolute; top:24px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,.7); color:#fff; padding:8px 16px; border-radius:20px; font-size:.95rem; font-weight:700; z-index:5;"></div>
   <div id="player-bottom">
   <div id="player-caption"><p id="player-caption-text"></p></div>
@@ -335,6 +340,7 @@
       <input type="range" id="pc-cap-time-slider" min="2" max="20" step="1" value="5" />
       <span id="pc-cap-time-label">5s</span>
     </div>
+    <button class="pc-btn" id="pc-mute" title="Som dos vídeos">🔊</button>
     <button class="pc-btn dimmed" id="pc-shuffle">⇄</button>
     <div class="pc-speed">
       <span>⏱</span>
@@ -357,7 +363,7 @@
 // ═══════════════════════════════════════════════════
 //  STATE
 // ═══════════════════════════════════════════════════
-const APP_VERSION = 'v19 · 06/07';
+const APP_VERSION = 'v20 · 06/07';
 let apiKey = localStorage.getItem('slideshow_apikey') || '';
 
 // Collections: [{id, name, handles: [FileSystemDirectoryHandle]}]
@@ -658,8 +664,14 @@ async function inspectFile(file) {
     if (b[0]===0x47 && b[1]===0x49 && b[2]===0x46 && b[3]===0x38) return { mime:'image/gif' };
     if (b[0]===0x42 && b[1]===0x4D) return { mime:'image/bmp' };
     if (b[0]===0x52 && b[1]===0x49 && b[2]===0x46 && b[3]===0x46 && b[8]===0x57 && b[9]===0x45 && b[10]===0x42 && b[11]===0x50) return { mime:'image/webp' };
-    // Identifiable but not displayable in the browser
-    if (b[4]===0x66 && b[5]===0x74 && b[6]===0x79 && b[7]===0x70) return { label:'HEIC/HEIF (foto de iPhone)' };
+    // ISO base-media container (ftyp at offset 4) — could be video or HEIC.
+    // The brand at offset 8 distinguishes them.
+    if (b[4]===0x66 && b[5]===0x74 && b[6]===0x79 && b[7]===0x70) {
+      const brand = String.fromCharCode(b[8],b[9],b[10],b[11]).toLowerCase();
+      if (brand.startsWith('qt')) return { mime:'video/quicktime' };
+      if (['isom','iso2','mp41','mp42','mp4 ','m4v ','avc1','dash'].includes(brand)) return { mime:'video/mp4' };
+      return { label:'HEIC/HEIF (foto de iPhone)' };
+    }
     const tiffLE = b[0]===0x49 && b[1]===0x49 && b[2]===0x2A && b[3]===0x00;
     const tiffBE = b[0]===0x4D && b[1]===0x4D && b[2]===0x00 && b[3]===0x2A;
     if (tiffLE && b[8]===0x43 && b[9]===0x52) return { label:'RAW Canon (CR2)' };
@@ -674,7 +686,9 @@ async function inspectFile(file) {
 // Anything clearly non-image (videos, docs…) is skipped without reading bytes,
 // so we never force a large cloud download just to peek.
 const IMAGE_EXTS = new Set(['jpg','jpeg','png','gif','webp','bmp','heic','heif','tif','tiff']);
+const VIDEO_EXTS = new Set(['mp4','webm','mov','m4v','ogv','ogg']);
 function fileExt(name) { const m = name.toLowerCase().match(/\.([^.]+)$/); return m ? m[1] : ''; }
+function videoMimeForExt(ext) { return ext==='webm' ? 'video/webm' : (ext==='ogv'||ext==='ogg') ? 'video/ogg' : ext==='mov' ? 'video/quicktime' : 'video/mp4'; }
 
 // Reads images directly inside one folder (no recursion).
 async function readImagesFromHandle(handle, onFile) {
@@ -691,8 +705,10 @@ async function readImagesFromHandle(handle, onFile) {
     try {
       const f = await fh.getFile();
       if (f.type.startsWith('image/')) { imgs.push(f); if (onFile) onFile(); continue; }
-      // No image MIME. Only inspect bytes if the extension is missing or
-      // image-like — never read bytes of videos/docs (avoids cloud downloads).
+      if (f.type.startsWith('video/')) { imgs.push(f); if (onFile) onFile(); continue; }
+      if (VIDEO_EXTS.has(ext)) { imgs.push(new File([f], f.name, { type: videoMimeForExt(ext), lastModified: f.lastModified })); if (onFile) onFile(); continue; }
+      // No image/video MIME. Only inspect bytes if the extension is missing or
+      // image-like — never read bytes of other docs (avoids cloud downloads).
       if (ext !== '' && !IMAGE_EXTS.has(ext)) continue;
       const r = await inspectFile(f);
       if (r.mime) { imgs.push(new File([f], f.name, { type: r.mime, lastModified: f.lastModified })); if (onFile) onFile(); }
@@ -800,6 +816,7 @@ function buildPhotoObjects(groups) {
       existing.add(key);
       const ld = lMap[f.name];
       photos.push({ file:f, url:URL.createObjectURL(f), name:f.name.replace(/\.[^.]+$/,''),
+        isVideo: (f.type||'').startsWith('video/'),
         year:null, month:null, city:null, country:null, caption:'',
         capScale: ld?.tamanho || sizeCache[f.name] || 1,
         folderHandle: handle||null, _fromJson: ld?.dados||null });
@@ -1045,7 +1062,7 @@ function renderReview() {
     const card=document.createElement('div'); card.className='photo-card';
     card.innerHTML=`
       <div class="photo-thumb">
-        <img src="${p.url}" loading="lazy" />
+        ${p.isVideo ? `<video src="${p.url}" muted preload="metadata" playsinline></video><span class="video-badge">🎬 vídeo</span>` : `<img src="${p.url}" loading="lazy" />`}
         <button class="btn-play-photo" data-idx="${gi}" title="Iniciar a partir desta foto">▶</button>
         <button class="btn-remove-photo" data-idx="${gi}">✕</button>
       </div>
@@ -1132,9 +1149,11 @@ document.addEventListener('visibilitychange', () => {
 //  PLAYER
 // ═══════════════════════════════════════════════════
 const playerEl=document.getElementById('player'), imgEl=document.getElementById('player-img');
+const videoEl=document.getElementById('player-video');
 const capWrap=document.getElementById('player-caption'), capText=document.getElementById('player-caption-text');
 const clockEl=document.getElementById('player-clock'), counterEl=document.getElementById('player-counter');
 const fillEl=document.getElementById('player-progress-fill'), controlsEl=document.getElementById('player-controls');
+let videoMuted = localStorage.getItem('slideshow_muted')==='1';
 
 function applyCapSize(p) { capText.style.fontSize=`calc(clamp(1.8rem, 4.5vw, 4.2rem) * ${p.capScale||1})`; }
 // Sets caption visibility honoring the manual toggle and the auto-hide option.
@@ -1159,33 +1178,56 @@ function startPlayer(shuffle, startIdx) {
   document.getElementById('pc-cap-time-wrap').style.display=autoHideCap?'flex':'none';
   document.getElementById('pc-cap-time-slider').value=capHideTime;
   document.getElementById('pc-cap-time-label').textContent=capHideTime+'s';
+  const mb=document.getElementById('pc-mute'); mb.textContent=videoMuted?'🔇':'🔊'; mb.classList.toggle('dimmed',videoMuted);
   playerEl.classList.add('active'); playerEl.style.cursor='none';
   displayPhoto(true); startAutoPlay(); startClock(); revealControls();
+}
+// Swaps in the current item — an image (with Ken Burns) or a video (autoplay).
+function setMedia(p, kbName, ts) {
+  capText.innerHTML=renderCaption(p); applyCapSize(p);
+  if (p.isVideo) {
+    imgEl.classList.add('gone'); imgEl.style.animation='none';
+    videoEl.classList.add('shown');
+    videoEl.src=p.url; videoEl.muted=videoMuted; try{videoEl.currentTime=0;}catch{}
+    videoEl.style.opacity='1';
+    if (isPlaying) videoEl.play().catch(()=>{});
+  } else {
+    videoEl.classList.remove('shown'); videoEl.pause(); videoEl.removeAttribute('src'); videoEl.load();
+    imgEl.classList.remove('gone');
+    imgEl.src=p.url; imgEl.style.animation='none'; void imgEl.offsetWidth;
+    imgEl.style.animation=`${kbName} ${ts}s ease-in-out both`;
+    imgEl.style.opacity='1';
+  }
+  updateCaptionVisibility(p);
 }
 function displayPhoto(immediate) {
   const p=photos[order[pos]], kbName=kbAnims[order[pos]%kbAnims.length], ts=speed+3;
   if (immediate) {
-    imgEl.style.opacity='1'; imgEl.src=p.url; imgEl.style.animation=`${kbName} ${ts}s ease-in-out both`;
-    capText.innerHTML=renderCaption(p); applyCapSize(p);
-    updateCaptionVisibility(p);
+    setMedia(p,kbName,ts);
   } else {
-    imgEl.style.opacity='0'; capWrap.style.opacity='0'; clearTimeout(capHideTimer);
-    setTimeout(()=>{ imgEl.src=p.url; imgEl.style.animation='none'; void imgEl.offsetWidth;
-      imgEl.style.animation=`${kbName} ${ts}s ease-in-out both`;
-      capText.innerHTML=renderCaption(p); applyCapSize(p);
-      imgEl.style.opacity='1'; updateCaptionVisibility(p); },700);
+    imgEl.style.opacity='0'; videoEl.style.opacity='0'; capWrap.style.opacity='0'; clearTimeout(capHideTimer); videoEl.pause();
+    setTimeout(()=>{ setMedia(p,kbName,ts); },700);
   }
   fillEl.style.width=((pos+1)/order.length*100)+'%';
   counterEl.textContent=`${pos+1} / ${order.length}`;
 }
 function advance(dir) { pos=(pos+dir+order.length)%order.length; displayPhoto(false); if(isPlaying)startAutoPlay(); }
-function startAutoPlay() { clearTimeout(autoTimer); if(isPlaying)autoTimer=setTimeout(()=>advance(1),speed*1000); }
+// Images advance on the fixed timer; videos advance when they finish ('ended').
+function startAutoPlay() {
+  clearTimeout(autoTimer);
+  if (!isPlaying) return;
+  const p=photos[order[pos]];
+  if (p && p.isVideo) return;
+  autoTimer=setTimeout(()=>advance(1),speed*1000);
+}
+videoEl.addEventListener('ended',()=>{ if(isPlaying) advance(1); });
+videoEl.addEventListener('error',()=>{ if(playerEl.classList.contains('active') && photos[order[pos]]?.isVideo && isPlaying) advance(1); });
 function startClock() {
   clearInterval(clockInterval);
   const tick=()=>clockEl.textContent=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
   clockInterval=setInterval(tick,1000); tick();
 }
-function stopPlayer() { clearTimeout(autoTimer); clearInterval(clockInterval); clearTimeout(capHideTimer); playerEl.classList.remove('active'); }
+function stopPlayer() { clearTimeout(autoTimer); clearInterval(clockInterval); clearTimeout(capHideTimer); videoEl.pause(); playerEl.classList.remove('active'); }
 function revealControls() {
   playerEl.style.cursor='default'; controlsEl.classList.remove('hidden');
   clearTimeout(ctrlTimer); ctrlTimer=setTimeout(()=>{controlsEl.classList.add('hidden');playerEl.style.cursor='none';},3500);
@@ -1194,7 +1236,8 @@ playerEl.addEventListener('mousemove',revealControls);
 playerEl.addEventListener('click',revealControls);
 document.getElementById('pc-prev').addEventListener('click',e=>{e.stopPropagation();advance(-1);});
 document.getElementById('pc-next').addEventListener('click',e=>{e.stopPropagation();advance(1);});
-document.getElementById('pc-playpause').addEventListener('click',e=>{e.stopPropagation();isPlaying=!isPlaying;document.getElementById('pc-playpause').textContent=isPlaying?'⏸':'▶';startAutoPlay();});
+document.getElementById('pc-playpause').addEventListener('click',e=>{e.stopPropagation();isPlaying=!isPlaying;document.getElementById('pc-playpause').textContent=isPlaying?'⏸':'▶';if(photos[order[pos]]?.isVideo){if(isPlaying)videoEl.play().catch(()=>{});else videoEl.pause();}startAutoPlay();});
+document.getElementById('pc-mute').addEventListener('click',e=>{e.stopPropagation();videoMuted=!videoMuted;videoEl.muted=videoMuted;localStorage.setItem('slideshow_muted',videoMuted?'1':'0');e.currentTarget.textContent=videoMuted?'🔇':'🔊';e.currentTarget.classList.toggle('dimmed',videoMuted);});
 document.getElementById('pc-caption').addEventListener('click',e=>{e.stopPropagation();showCap=!showCap;e.target.classList.toggle('dimmed',!showCap);updateCaptionVisibility(photos[order[pos]]);});
 document.getElementById('pc-cap-auto').addEventListener('click',e=>{e.stopPropagation();autoHideCap=!autoHideCap;e.currentTarget.classList.toggle('dimmed',!autoHideCap);localStorage.setItem('slideshow_autohide',autoHideCap?'1':'0');document.getElementById('pc-cap-time-wrap').style.display=autoHideCap?'flex':'none';updateCaptionVisibility(photos[order[pos]]);});
 document.getElementById('pc-cap-time-slider').addEventListener('input',e=>{e.stopPropagation();capHideTime=+e.target.value;document.getElementById('pc-cap-time-label').textContent=capHideTime+'s';localStorage.setItem('slideshow_capHideTime',capHideTime);updateCaptionVisibility(photos[order[pos]]);});
@@ -1212,7 +1255,7 @@ document.addEventListener('keydown',e=>{
   switch(e.key){
     case'ArrowRight':case'ArrowDown':advance(1);break;
     case'ArrowLeft':case'ArrowUp':advance(-1);break;
-    case' ':e.preventDefault();isPlaying=!isPlaying;document.getElementById('pc-playpause').textContent=isPlaying?'⏸':'▶';startAutoPlay();break;
+    case' ':e.preventDefault();isPlaying=!isPlaying;document.getElementById('pc-playpause').textContent=isPlaying?'⏸':'▶';if(photos[order[pos]]?.isVideo){if(isPlaying)videoEl.play().catch(()=>{});else videoEl.pause();}startAutoPlay();break;
     case'c':case'C':showCap=!showCap;document.getElementById('pc-caption').classList.toggle('dimmed',!showCap);updateCaptionVisibility(photos[order[pos]]);break;
     case'+':case'=':e.preventDefault();adjustCurrentScale(+0.1);break;
     case'-':case'_':e.preventDefault();adjustCurrentScale(-0.1);break;
