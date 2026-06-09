@@ -59,6 +59,7 @@ interface HistoryRow {
   id: string;
   topic: string;
   variations: HistoryEntry["variations"];
+  idea_ids: string[] | null;
   created_at: string;
 }
 interface AnalyticsMeta {
@@ -146,6 +147,7 @@ export async function hydrate(): Promise<void> {
     id: x.id,
     topic: x.topic,
     variations: Array.isArray(x.variations) ? x.variations : [],
+    ideaIds: Array.isArray(x.idea_ids) ? x.idea_ids : [],
     createdAt: new Date(x.created_at).getTime(),
   }));
   cache.analytics = ((a.data ?? []) as AnalyticsRow[]).map((x) => {
@@ -233,6 +235,15 @@ export const objectives = {
       );
   },
 };
+
+export function ideaUsageCounts(): Map<string, number> {
+  const m = new Map<string, number>();
+  for (const h of cache.history) {
+    if (!h.ideaIds) continue;
+    for (const id of h.ideaIds) m.set(id, (m.get(id) ?? 0) + 1);
+  }
+  return m;
+}
 
 export const schedule = {
   list(): ScheduledPost[] {
@@ -322,6 +333,7 @@ export const history = {
         id: item.id,
         topic: item.topic,
         variations: item.variations,
+        idea_ids: item.ideaIds ?? [],
         created_at: iso(item.createdAt),
       }),
     );

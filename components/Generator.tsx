@@ -95,7 +95,7 @@ export function Generator() {
       if (!data.variations) throw new Error("Resposta sem variações.");
 
       setVariations(data.variations);
-      history.add({ topic, variations: data.variations });
+      history.add({ topic, variations: data.variations, ideaIds: selectedIdeaIds });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro desconhecido");
     } finally {

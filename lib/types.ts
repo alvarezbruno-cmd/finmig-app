@@ -44,6 +44,7 @@ export interface HistoryEntry {
   id: string;
   topic: string;
   variations: Variation[];
+  ideaIds?: string[];
   createdAt: number;
 }
 

@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { sources } from "@/lib/storage";
+import { useEffect, useMemo, useState } from "react";
+import { ideaUsageCounts, sources } from "@/lib/storage";
 import type { SourceText } from "@/lib/types";
 
 const empty = { title: "", author: "", publication: "", date: "", link: "" };
@@ -11,13 +11,21 @@ export function Sources() {
   const [form, setForm] = useState(empty);
   const [ideaDrafts, setIdeaDrafts] = useState<Record<string, string>>({});
 
+  const [usage, setUsage] = useState<Map<string, number>>(new Map());
+
   function refresh() {
     setItems(sources.list());
+    setUsage(ideaUsageCounts());
   }
 
   useEffect(() => {
     refresh();
   }, []);
+
+  const totalUsed = useMemo(
+    () => [...usage.values()].filter((n) => n > 0).length,
+    [usage],
+  );
 
   function addSource() {
     if (!form.title.trim() && !form.author.trim()) return;
@@ -147,6 +155,13 @@ export function Sources() {
       <section className="space-y-4">
         <div className="text-sm text-[var(--color-text-dim)]">
           {items.length} texto{items.length === 1 ? "" : "s"}
+          {totalUsed > 0 && (
+            <>
+              {" "}
+              · {totalUsed} ideia{totalUsed === 1 ? "" : "s"} já usada
+              {totalUsed === 1 ? "" : "s"} em posts
+            </>
+          )}
         </div>
         {items.length === 0 ? (
           <div className="rounded-md border border-dashed border-[var(--color-border)] p-6 text-center text-sm text-[var(--color-text-dim)]">
@@ -187,12 +202,29 @@ export function Sources() {
                 <div className="text-xs uppercase tracking-wider text-[var(--color-text-dim)]">
                   Ideias centrais ({s.ideas.length})
                 </div>
-                {s.ideas.map((idea) => (
+                {s.ideas.map((idea) => {
+                  const used = usage.get(idea.id) ?? 0;
+                  return (
                   <div
                     key={idea.id}
-                    className="flex items-start justify-between gap-2 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] p-2.5"
+                    className={
+                      "flex items-start justify-between gap-2 rounded-md border p-2.5 " +
+                      (used > 0
+                        ? "border-[var(--color-accent)]/40 bg-[var(--color-accent)]/5"
+                        : "border-[var(--color-border)] bg-[var(--color-bg)]")
+                    }
                   >
-                    <div className="text-sm leading-relaxed">{idea.text}</div>
+                    <div className="flex-1 text-sm leading-relaxed">
+                      {idea.text}
+                      {used > 0 && (
+                        <span
+                          className="ml-2 inline-block rounded-full bg-[var(--color-accent)]/15 px-2 py-0.5 text-[10px] font-medium text-[var(--color-accent)]"
+                          title={`Já usada em ${used} geração${used === 1 ? "" : "ões"} de post`}
+                        >
+                          usada {used}×
+                        </span>
+                      )}
+                    </div>
                     <button
                       onClick={() => removeIdea(s.id, idea.id)}
                       className="shrink-0 text-xs text-[var(--color-text-dim)] hover:text-[var(--color-danger)]"
@@ -201,7 +233,8 @@ export function Sources() {
                       ✕
                     </button>
                   </div>
-                ))}
+                  );
+                })}
 
                 <div className="flex gap-2">
                   <textarea
