@@ -65,7 +65,13 @@ function velocityPerDay(p: PublishedPost): number {
   return p.metrics.impressions / effective;
 }
 
-function Timeline({ posts }: { posts: PublishedPost[] }) {
+function Timeline({
+  posts,
+  mode,
+}: {
+  posts: PublishedPost[];
+  mode: "total" | "rate";
+}) {
   const dated = [...posts]
     .filter((p) => p.postedAt && p.metrics.impressions > 0)
     .sort(
@@ -73,6 +79,13 @@ function Timeline({ posts }: { posts: PublishedPost[] }) {
         new Date(a.postedAt + "T12:00:00").getTime() -
         new Date(b.postedAt + "T12:00:00").getTime(),
     );
+
+  const valueOf = (p: PublishedPost, key: "impressions" | "reached") => {
+    if (mode === "total") return p.metrics[key];
+    const age = ageDays(p.postedAt);
+    const eff = Math.max(0.5, Math.min(age || 1, 7));
+    return p.metrics[key] / eff;
+  };
   if (dated.length < 2) return null;
 
   const W = 820;
@@ -88,7 +101,7 @@ function Timeline({ posts }: { posts: PublishedPost[] }) {
   const lastT = new Date(dated[dated.length - 1].postedAt + "T12:00:00").getTime();
   const tSpan = Math.max(86400000, lastT - firstT);
 
-  const maxImp = Math.max(...dated.map((p) => p.metrics.impressions), 1);
+  const maxImp = Math.max(...dated.map((p) => valueOf(p, "impressions")), 1);
   const xOf = (t: number) => ML + ((t - firstT) / tSpan) * innerW;
   const yOf = (v: number) => MT + innerH - (v / maxImp) * innerH;
 
@@ -98,7 +111,7 @@ function Timeline({ posts }: { posts: PublishedPost[] }) {
     dated
       .map((p, i) => {
         const t = new Date(p.postedAt + "T12:00:00").getTime();
-        return `${i === 0 ? "M" : "L"} ${xOf(t).toFixed(1)} ${yOf(p.metrics[key]).toFixed(1)}`;
+        return `${i === 0 ? "M" : "L"} ${xOf(t).toFixed(1)} ${yOf(valueOf(p, key)).toFixed(1)}`;
       })
       .join(" ");
 
@@ -139,7 +152,7 @@ function Timeline({ posts }: { posts: PublishedPost[] }) {
           <g key={p.id}>
             <circle
               cx={xOf(t)}
-              cy={yOf(p.metrics.reached)}
+              cy={yOf(valueOf(p, "reached"))}
               r="4"
               fill={fresh ? "white" : "#9bc4e8"}
               stroke="#9bc4e8"
@@ -147,7 +160,7 @@ function Timeline({ posts }: { posts: PublishedPost[] }) {
             />
             <circle
               cx={xOf(t)}
-              cy={yOf(p.metrics.impressions)}
+              cy={yOf(valueOf(p, "impressions"))}
               r="5"
               fill={fresh ? "white" : "#0a66c2"}
               stroke="#0a66c2"
@@ -250,6 +263,7 @@ export function Analytics() {
   const [newTerrDesc, setNewTerrDesc] = useState("");
   const [briefing, setBriefing] = useState<string | null>(null);
   const [briefingLoading, setBriefingLoading] = useState(false);
+  const [chartMode, setChartMode] = useState<"rate" | "total">("rate");
   const [obj, setObj] = useState(objectives.get());
   const [objSaved, setObjSaved] = useState(false);
 
@@ -1051,12 +1065,49 @@ export function Analytics() {
 
       {items.filter((p) => p.postedAt && p.metrics.impressions > 0).length >= 2 && (
         <section className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
-          <div className="mb-1 text-sm font-medium">Percurso cronológico</div>
+          <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
+            <div className="text-sm font-medium">Percurso cronológico</div>
+            <div className="flex overflow-hidden rounded-md border border-[var(--color-border)] text-xs">
+              <button
+                onClick={() => setChartMode("rate")}
+                className={
+                  "px-3 py-1 transition " +
+                  (chartMode === "rate"
+                    ? "bg-[var(--color-accent)] text-white"
+                    : "bg-[var(--color-surface)] text-[var(--color-text-dim)] hover:text-[var(--color-text)]")
+                }
+              >
+                Ritmo (por dia)
+              </button>
+              <button
+                onClick={() => setChartMode("total")}
+                className={
+                  "px-3 py-1 transition " +
+                  (chartMode === "total"
+                    ? "bg-[var(--color-accent)] text-white"
+                    : "bg-[var(--color-surface)] text-[var(--color-text-dim)] hover:text-[var(--color-text)]")
+                }
+              >
+                Totais acumulados
+              </button>
+            </div>
+          </div>
           <p className="mb-3 text-xs text-[var(--color-text-dim)]">
-            Impressões e alcance ao longo do tempo. Pontos vazios = postados há menos de
-            48h (ainda em curva).
+            {chartMode === "rate" ? (
+              <>
+                Impressões e alcance <strong>por dia</strong> (normaliza pela idade do post,
+                com teto em 7 dias). Comparação justa entre posts novos e antigos. Pontos
+                vazios = postados há menos de 48h.
+              </>
+            ) : (
+              <>
+                Impressões e alcance <strong>acumulados</strong> ao longo do tempo. Posts
+                antigos tendem a ter mais por já terem rodado mais. Pontos vazios = postados
+                há menos de 48h.
+              </>
+            )}
           </p>
-          <Timeline posts={items} />
+          <Timeline posts={items} mode={chartMode} />
         </section>
       )}
 
