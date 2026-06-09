@@ -33,6 +33,7 @@ export function Articles() {
   const [texts, setTexts] = useState<SourceText[]>([]);
   const [terrs, setTerrs] = useState<Territory[]>([]);
   const [territoryId, setTerritoryId] = useState("");
+  const [targetChars, setTargetChars] = useState("6000");
   const [selectedIdeaIds, setSelectedIdeaIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -89,6 +90,7 @@ export function Articles() {
             ? `${terr.name}${terr.description ? ` — ${terr.description}` : ""}`
             : undefined,
           objectives: objectivesString() || undefined,
+          targetChars: Number(targetChars) || undefined,
         }),
       });
       const raw = await res.text();
@@ -177,6 +179,24 @@ export function Articles() {
             onChange={(e) => setTopic(e.target.value)}
             placeholder="Ex: o impacto do uso indiscriminado de IA no desenvolvimento do julgamento em adolescentes"
             className={field}
+          />
+        </label>
+
+        <label className="block">
+          <div className="mb-1 text-sm text-[var(--color-text-dim)]">
+            Tamanho-alvo (caracteres){" "}
+            <span className="text-xs">
+              (Folha de opinião: ~4.000 · padrão dominical: ~6.000 · longo: ~8.000)
+            </span>
+          </div>
+          <input
+            type="number"
+            min={1000}
+            max={12000}
+            step={500}
+            value={targetChars}
+            onChange={(e) => setTargetChars(e.target.value)}
+            className={`${field} sm:max-w-xs`}
           />
         </label>
 

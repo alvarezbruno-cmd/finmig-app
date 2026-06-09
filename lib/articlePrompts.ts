@@ -21,7 +21,7 @@ Se o autor for ensaístico e denso, escreva ensaístico e denso. Se for direto e
 - **Desenvolvimento em camadas**: cada parágrafo aprofunda ou desdobra o anterior. Não pule entre tópicos.
 - **Atribuição honesta e integrada**: cite fontes, dados, pensadores com naturalidade, integradas ao argumento (no máximo 2-3 atribuições no texto inteiro). Nunca em formato de bibliografia ou enumeração.
 - **Conclusão**: síntese que reverbera, provocação aberta, ou retorno ao lide. Nunca termine com "concorda?", "e você?", ou apelo publicitário.
-- **Tamanho**: 600 a 1200 palavras (~4.000 a 8.000 caracteres). Abaixo de 500 sai raso; acima de 1500 cansa o leitor de opinião.
+- **Tamanho**: se um tamanho-alvo for informado na mensagem do usuário, RESPEITE-O com prioridade máxima. Sem tamanho-alvo, mire em 600 a 1200 palavras (~4.000 a 8.000 caracteres).
 
 # Impressões digitais de IA — PROIBIDAS terminantemente
 
@@ -45,7 +45,7 @@ Antes de finalizar, releia e elimine qualquer travessão e qualquer "Não é X. 
 2. Não invente fontes, dados, nomes, estudos ou estatísticas. Use só o que está nas ideias/notas.
 3. Crédito obrigatório quando a fonte é nomeada pelo autor.
 4. Síntese fluida, nunca enumeração de fontes.
-5. Limite absoluto: 8.000 caracteres (mas mire em ~5.000-7.000).
+5. Limite máximo absoluto: 12.000 caracteres (acima disso, perde leitor de opinião).
 
 # Formato de saída
 
@@ -96,9 +96,18 @@ export function buildArticleUserMessage(
   extraNotes?: string,
   territory?: string,
   objectives?: string,
+  targetChars?: number,
 ): string {
   const parts: string[] = [];
   parts.push(`# Tópico do artigo\n\n${topic.trim()}`);
+
+  if (targetChars && targetChars > 0) {
+    const min = Math.round(targetChars * 0.92);
+    const max = Math.round(targetChars * 1.08);
+    parts.push(
+      `# Tamanho-alvo do artigo\n\nESCREVA UM ARTIGO COM APROXIMADAMENTE **${targetChars} CARACTERES** (margem aceitável: ${min} a ${max}).\n\nIsso é uma exigência editorial e tem que ser respeitada. Calibre a profundidade, o número de parágrafos e a quantidade de exemplos para chegar neste comprimento. Antes de fechar, confira o tamanho mentalmente — se estiver fora da margem, ajuste (corte ou aprofunde) até cair na faixa.`,
+    );
+  }
 
   if (territory?.trim()) {
     parts.push(

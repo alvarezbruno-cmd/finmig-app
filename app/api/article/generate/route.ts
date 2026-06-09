@@ -49,6 +49,7 @@ export async function POST(req: Request) {
             body.extraNotes,
             body.territory,
             body.objectives,
+            body.targetChars,
           ),
         },
       ],

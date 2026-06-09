@@ -96,6 +96,7 @@ export interface ArticleGenerateRequest {
   references: string[];
   territory?: string;
   objectives?: string;
+  targetChars?: number;
 }
 
 export interface PostMetrics {
