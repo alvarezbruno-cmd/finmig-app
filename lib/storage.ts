@@ -2,6 +2,8 @@
 
 import { supabase } from "./supabase";
 import type {
+  Article,
+  ArticleReference,
   HistoryEntry,
   Idea,
   Objectives,
@@ -26,6 +28,8 @@ const cache = {
   analytics: [] as PublishedPost[],
   territories: [] as Territory[],
   scheduled: [] as ScheduledPost[],
+  articleRefs: [] as ArticleReference[],
+  articles: [] as Article[],
   objectives: { ...EMPTY_OBJECTIVES } as Objectives,
 };
 
@@ -96,9 +100,22 @@ interface ScheduledRow {
   status: string;
   created_at: string;
 }
+interface ArticleRefRow {
+  id: string;
+  content: string;
+  note: string | null;
+  created_at: string;
+}
+interface ArticleRow {
+  id: string;
+  topic: string;
+  title: string | null;
+  body: string;
+  created_at: string;
+}
 
 export async function hydrate(): Promise<void> {
-  const [r, s, h, a, t, st, sc] = await Promise.all([
+  const [r, s, h, a, t, st, sc, ar, art] = await Promise.all([
     supabase.from("style_references").select("*").order("created_at", { ascending: false }),
     supabase.from("sources").select("*").order("created_at", { ascending: false }),
     supabase.from("history").select("*").order("created_at", { ascending: false }),
@@ -106,7 +123,23 @@ export async function hydrate(): Promise<void> {
     supabase.from("territories").select("*").order("created_at", { ascending: true }),
     supabase.from("settings").select("data").maybeSingle(),
     supabase.from("scheduled_posts").select("*").order("scheduled_at", { ascending: true }),
+    supabase.from("article_references").select("*").order("created_at", { ascending: false }),
+    supabase.from("articles").select("*").order("created_at", { ascending: false }),
   ]);
+
+  cache.articleRefs = ((ar.data ?? []) as ArticleRefRow[]).map((x) => ({
+    id: x.id,
+    content: x.content,
+    note: x.note ?? undefined,
+    createdAt: new Date(x.created_at).getTime(),
+  }));
+  cache.articles = ((art.data ?? []) as ArticleRow[]).map((x) => ({
+    id: x.id,
+    topic: x.topic,
+    title: x.title ?? "",
+    body: x.body,
+    createdAt: new Date(x.created_at).getTime(),
+  }));
 
   const settingsData = (st.data?.data ?? {}) as { objectives?: Objectives };
   cache.objectives = { ...EMPTY_OBJECTIVES, ...(settingsData.objectives ?? {}) };
@@ -244,6 +277,69 @@ export function ideaUsageCounts(): Map<string, number> {
   }
   return m;
 }
+
+export const articleReferences = {
+  list(): ArticleReference[] {
+    return [...cache.articleRefs].sort((a, b) => b.createdAt - a.createdAt);
+  },
+  add(content: string, note?: string): ArticleReference {
+    const item: ArticleReference = {
+      id: crypto.randomUUID(),
+      content: content.trim(),
+      note: note?.trim() || undefined,
+      createdAt: Date.now(),
+    };
+    cache.articleRefs = [item, ...cache.articleRefs];
+    persist(
+      supabase.from("article_references").insert({
+        id: item.id,
+        content: item.content,
+        note: item.note ?? null,
+        created_at: iso(item.createdAt),
+      }),
+    );
+    return item;
+  },
+  remove(id: string): void {
+    cache.articleRefs = cache.articleRefs.filter((r) => r.id !== id);
+    persist(supabase.from("article_references").delete().eq("id", id));
+  },
+};
+
+export const articles = {
+  list(): Article[] {
+    return [...cache.articles].sort((a, b) => b.createdAt - a.createdAt);
+  },
+  add(entry: Omit<Article, "id" | "createdAt">): Article {
+    const item: Article = { ...entry, id: crypto.randomUUID(), createdAt: Date.now() };
+    cache.articles = [item, ...cache.articles];
+    persist(
+      supabase.from("articles").insert({
+        id: item.id,
+        topic: item.topic,
+        title: item.title,
+        body: item.body,
+        created_at: iso(item.createdAt),
+      }),
+    );
+    return item;
+  },
+  update(id: string, patch: Partial<Pick<Article, "title" | "body" | "topic">>): void {
+    cache.articles = cache.articles.map((a) => (a.id === id ? { ...a, ...patch } : a));
+    const a = cache.articles.find((x) => x.id === id);
+    if (!a) return;
+    persist(
+      supabase
+        .from("articles")
+        .update({ topic: a.topic, title: a.title, body: a.body })
+        .eq("id", id),
+    );
+  },
+  remove(id: string): void {
+    cache.articles = cache.articles.filter((a) => a.id !== id);
+    persist(supabase.from("articles").delete().eq("id", id));
+  },
+};
 
 export const schedule = {
   list(): ScheduledPost[] {

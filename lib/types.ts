@@ -74,6 +74,30 @@ export interface ScheduledPost {
   createdAt: number;
 }
 
+export interface ArticleReference {
+  id: string;
+  content: string;
+  note?: string;
+  createdAt: number;
+}
+
+export interface Article {
+  id: string;
+  topic: string;
+  title: string;
+  body: string;
+  createdAt: number;
+}
+
+export interface ArticleGenerateRequest {
+  topic: string;
+  ideas: SelectedIdea[];
+  extraNotes?: string;
+  references: string[];
+  territory?: string;
+  objectives?: string;
+}
+
 export interface PostMetrics {
   impressions: number;
   reached: number;
