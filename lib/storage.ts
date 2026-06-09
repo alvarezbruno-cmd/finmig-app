@@ -418,6 +418,20 @@ export const sources = {
     const s = cache.sources.find((x) => x.id === sourceId);
     if (s) persistSource(s);
   },
+  toggleIdeaManualUsed(sourceId: string, ideaId: string): void {
+    cache.sources = cache.sources.map((s) =>
+      s.id === sourceId
+        ? {
+            ...s,
+            ideas: s.ideas.map((i) =>
+              i.id === ideaId ? { ...i, manualUsed: !i.manualUsed } : i,
+            ),
+          }
+        : s,
+    );
+    const s = cache.sources.find((x) => x.id === sourceId);
+    if (s) persistSource(s);
+  },
   getSelectedIdeas(ideaIds: string[]): SelectedIdea[] {
     const idSet = new Set(ideaIds);
     const selected: SelectedIdea[] = [];

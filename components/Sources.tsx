@@ -22,10 +22,20 @@ export function Sources() {
     refresh();
   }, []);
 
-  const totalUsed = useMemo(
-    () => [...usage.values()].filter((n) => n > 0).length,
-    [usage],
-  );
+  const totalUsed = useMemo(() => {
+    let n = 0;
+    for (const s of items) {
+      for (const idea of s.ideas) {
+        if ((usage.get(idea.id) ?? 0) > 0 || idea.manualUsed) n += 1;
+      }
+    }
+    return n;
+  }, [items, usage]);
+
+  function toggleManualUsed(sourceId: string, ideaId: string) {
+    sources.toggleIdeaManualUsed(sourceId, ideaId);
+    refresh();
+  }
 
   function addSource() {
     if (!form.title.trim() && !form.author.trim()) return;
@@ -204,12 +214,13 @@ export function Sources() {
                 </div>
                 {s.ideas.map((idea) => {
                   const used = usage.get(idea.id) ?? 0;
+                  const isUsed = used > 0 || !!idea.manualUsed;
                   return (
                   <div
                     key={idea.id}
                     className={
                       "flex items-start justify-between gap-2 rounded-md border p-2.5 " +
-                      (used > 0
+                      (isUsed
                         ? "border-[var(--color-accent)]/40 bg-[var(--color-accent)]/5"
                         : "border-[var(--color-border)] bg-[var(--color-bg)]")
                     }
@@ -219,19 +230,36 @@ export function Sources() {
                       {used > 0 && (
                         <span
                           className="ml-2 inline-block rounded-full bg-[var(--color-accent)]/15 px-2 py-0.5 text-[10px] font-medium text-[var(--color-accent)]"
-                          title={`Já usada em ${used} geração${used === 1 ? "" : "ões"} de post`}
+                          title={`Usada em ${used} geração${used === 1 ? "" : "ões"} pelo app`}
                         >
                           usada {used}×
                         </span>
                       )}
+                      {idea.manualUsed && (
+                        <span
+                          className="ml-2 inline-block rounded-full border border-[var(--color-accent)]/40 px-2 py-0.5 text-[10px] font-medium text-[var(--color-accent)]"
+                          title="Você marcou esta ideia como já usada"
+                        >
+                          marcada
+                        </span>
+                      )}
                     </div>
-                    <button
-                      onClick={() => removeIdea(s.id, idea.id)}
-                      className="shrink-0 text-xs text-[var(--color-text-dim)] hover:text-[var(--color-danger)]"
-                      title="Remover ideia"
-                    >
-                      ✕
-                    </button>
+                    <div className="flex shrink-0 flex-col items-end gap-1">
+                      <button
+                        onClick={() => toggleManualUsed(s.id, idea.id)}
+                        className="text-[10px] text-[var(--color-text-dim)] hover:text-[var(--color-accent)]"
+                        title={idea.manualUsed ? "Desmarcar como usada" : "Marcar como já usada"}
+                      >
+                        {idea.manualUsed ? "desmarcar" : "marcar usada"}
+                      </button>
+                      <button
+                        onClick={() => removeIdea(s.id, idea.id)}
+                        className="text-xs text-[var(--color-text-dim)] hover:text-[var(--color-danger)]"
+                        title="Remover ideia"
+                      >
+                        ✕
+                      </button>
+                    </div>
                   </div>
                   );
                 })}

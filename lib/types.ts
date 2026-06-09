@@ -16,6 +16,7 @@ export interface Idea {
   id: string;
   text: string;
   createdAt: number;
+  manualUsed?: boolean;
 }
 
 export interface SourceText {
