@@ -46,6 +46,166 @@ const metricFields: { key: keyof typeof emptyMetrics; label: string }[] = [
   { key: "sends", label: "Envios no LinkedIn" },
 ];
 
+function ageDays(postedAt: string): number {
+  if (!postedAt) return 0;
+  const d = new Date(postedAt + "T12:00:00").getTime();
+  return Math.max(0, (Date.now() - d) / 86400000);
+}
+
+function fmtAge(d: number): string {
+  if (d < 1) return `${Math.max(1, Math.round(d * 24))}h`;
+  if (d < 30) return `${Math.round(d)}d`;
+  return `${Math.round(d / 30)}m`;
+}
+
+function velocityPerDay(p: PublishedPost): number {
+  const age = ageDays(p.postedAt);
+  // posts plateau by day 7; cap so a 30d-old post não pareça lento
+  const effective = Math.max(0.5, Math.min(age || 1, 7));
+  return p.metrics.impressions / effective;
+}
+
+function Timeline({ posts }: { posts: PublishedPost[] }) {
+  const dated = [...posts]
+    .filter((p) => p.postedAt && p.metrics.impressions > 0)
+    .sort(
+      (a, b) =>
+        new Date(a.postedAt + "T12:00:00").getTime() -
+        new Date(b.postedAt + "T12:00:00").getTime(),
+    );
+  if (dated.length < 2) return null;
+
+  const W = 820;
+  const H = 320;
+  const ML = 60;
+  const MR = 130;
+  const MT = 24;
+  const MB = 64;
+  const innerW = W - ML - MR;
+  const innerH = H - MT - MB;
+
+  const firstT = new Date(dated[0].postedAt + "T12:00:00").getTime();
+  const lastT = new Date(dated[dated.length - 1].postedAt + "T12:00:00").getTime();
+  const tSpan = Math.max(86400000, lastT - firstT);
+
+  const maxImp = Math.max(...dated.map((p) => p.metrics.impressions), 1);
+  const xOf = (t: number) => ML + ((t - firstT) / tSpan) * innerW;
+  const yOf = (v: number) => MT + innerH - (v / maxImp) * innerH;
+
+  const tickValues = [0, maxImp * 0.25, maxImp * 0.5, maxImp * 0.75, maxImp];
+
+  const pathFor = (key: "impressions" | "reached") =>
+    dated
+      .map((p, i) => {
+        const t = new Date(p.postedAt + "T12:00:00").getTime();
+        return `${i === 0 ? "M" : "L"} ${xOf(t).toFixed(1)} ${yOf(p.metrics[key]).toFixed(1)}`;
+      })
+      .join(" ");
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" preserveAspectRatio="xMidYMid meet">
+      {tickValues.map((v) => (
+        <g key={v}>
+          <line
+            x1={ML}
+            x2={W - MR}
+            y1={yOf(v)}
+            y2={yOf(v)}
+            stroke="#e5e5e5"
+            strokeDasharray="3 3"
+          />
+          <text
+            x={ML - 8}
+            y={yOf(v) + 4}
+            textAnchor="end"
+            fontSize="11"
+            fill="#5e5e5e"
+          >
+            {Math.round(v).toLocaleString("pt-BR")}
+          </text>
+        </g>
+      ))}
+
+      <line x1={ML} x2={W - MR} y1={H - MB} y2={H - MB} stroke="#9aa0a6" />
+      <line x1={ML} x2={ML} y1={MT} y2={H - MB} stroke="#9aa0a6" />
+
+      <path d={pathFor("reached")} fill="none" stroke="#9bc4e8" strokeWidth="2" />
+      <path d={pathFor("impressions")} fill="none" stroke="#0a66c2" strokeWidth="2.5" />
+
+      {dated.map((p) => {
+        const t = new Date(p.postedAt + "T12:00:00").getTime();
+        const fresh = ageDays(p.postedAt) < 2;
+        return (
+          <g key={p.id}>
+            <circle
+              cx={xOf(t)}
+              cy={yOf(p.metrics.reached)}
+              r="4"
+              fill={fresh ? "white" : "#9bc4e8"}
+              stroke="#9bc4e8"
+              strokeWidth="2"
+            />
+            <circle
+              cx={xOf(t)}
+              cy={yOf(p.metrics.impressions)}
+              r="5"
+              fill={fresh ? "white" : "#0a66c2"}
+              stroke="#0a66c2"
+              strokeWidth="2"
+            />
+          </g>
+        );
+      })}
+
+      {dated.map((p) => {
+        const t = new Date(p.postedAt + "T12:00:00").getTime();
+        const x = xOf(t);
+        const label = new Date(p.postedAt + "T12:00:00").toLocaleDateString(
+          "pt-BR",
+          { day: "2-digit", month: "2-digit" },
+        );
+        return (
+          <text
+            key={p.id}
+            x={x}
+            y={H - MB + 16}
+            textAnchor="end"
+            fontSize="10"
+            fill="#5e5e5e"
+            transform={`rotate(-35 ${x} ${H - MB + 16})`}
+          >
+            {label}
+          </text>
+        );
+      })}
+
+      <g transform={`translate(${W - MR + 10}, ${MT + 8})`}>
+        <line x1="0" x2="16" y1="6" y2="6" stroke="#0a66c2" strokeWidth="2.5" />
+        <circle cx="8" cy="6" r="4" fill="#0a66c2" />
+        <text x="22" y="10" fontSize="12" fill="#1d2226">
+          impressões
+        </text>
+        <line x1="0" x2="16" y1="28" y2="28" stroke="#9bc4e8" strokeWidth="2" />
+        <circle cx="8" cy="28" r="3" fill="#9bc4e8" />
+        <text x="22" y="32" fontSize="12" fill="#1d2226">
+          alcançados
+        </text>
+        <circle
+          cx="8"
+          cy="52"
+          r="4"
+          fill="white"
+          stroke="#0a66c2"
+          strokeWidth="2"
+        />
+        <text x="22" y="56" fontSize="11" fill="#5e5e5e">
+          (vazio) &lt; 48h
+        </text>
+      </g>
+    </svg>
+  );
+}
+
 function Bar({
   label,
   display,
@@ -826,6 +986,17 @@ export function Analytics() {
         </section>
       )}
 
+      {items.filter((p) => p.postedAt && p.metrics.impressions > 0).length >= 2 && (
+        <section className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+          <div className="mb-1 text-sm font-medium">Percurso cronológico</div>
+          <p className="mb-3 text-xs text-[var(--color-text-dim)]">
+            Impressões e alcance ao longo do tempo. Pontos vazios = postados há menos de
+            48h (ainda em curva).
+          </p>
+          <Timeline posts={items} />
+        </section>
+      )}
+
       {stats && stats.topPosts.length > 0 && (
         <section className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
           <div className="mb-3 text-sm font-medium">Engajamento por post</div>
@@ -920,6 +1091,20 @@ export function Analytics() {
                       <span>{p.metrics.saves} saves</span>
                       {p.metrics.sends > 0 && <span>{p.metrics.sends} envios</span>}
                     </div>
+                    {p.postedAt && (
+                      <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-[var(--color-text-dim)]">
+                        <span>há {fmtAge(ageDays(p.postedAt))}</span>
+                        <span>·</span>
+                        <span>
+                          ~{Math.round(velocityPerDay(p)).toLocaleString("pt-BR")} impr./dia
+                        </span>
+                        {ageDays(p.postedAt) < 2 && (
+                          <span className="rounded-full bg-[var(--color-warn)]/15 px-2 py-0.5 text-[10px] font-medium text-[var(--color-warn)]">
+                            ainda em curva
+                          </span>
+                        )}
+                      </div>
+                    )}
                     {(p.topRole || p.topLocation || p.topIndustry) && (
                       <div className="mt-1 text-xs text-[var(--color-text-dim)]">
                         Público: {[p.topRole, p.topLocation, p.topIndustry].filter(Boolean).join(" · ")}
