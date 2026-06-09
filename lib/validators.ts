@@ -63,9 +63,10 @@ const IDEAL_MIN = 500;
 const EMOJI_REGEX =
   /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{1F000}-\u{1F02F}\u{1F0A0}-\u{1F0FF}]/gu;
 
-export function validatePost(post: string): ValidationIssue[] {
+// Marcas de IA e clichês — independem de plataforma (servem para posts e artigos).
+export function detectAiTells(text: string): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
-  const lower = post.toLowerCase();
+  const lower = text.toLowerCase();
 
   for (const phrase of BANNED_PHRASES) {
     if (lower.includes(phrase)) {
@@ -77,6 +78,45 @@ export function validatePost(post: string): ValidationIssue[] {
       });
     }
   }
+
+  const dashes = text.match(/—|–|\s-\s/g) ?? [];
+  if (dashes.length > 0) {
+    issues.push({
+      type: "ai-tell",
+      severity: "warning",
+      message: `${dashes.length} travessão(ões). É marca de IA — troque por vírgula, ponto ou parênteses.`,
+    });
+  }
+
+  const antithesis =
+    /\bnão (?:é|se trata de|são) [^.!?:;]{1,160}[.!?:;]\s*(?:e sim |mas )?(?:é|são)[\s,]/i.test(text) ||
+    /\bo problema não é [^.!?:;]{1,120}[,.:;]\s*(?:e sim |é )/i.test(text) ||
+    /\bmais do que [^.!?:;]{1,80},?\s*(?:é |trata-se)/i.test(text);
+  if (antithesis) {
+    issues.push({
+      type: "ai-tell",
+      severity: "warning",
+      message: 'Construção "Não é X. É Y." detectada — afirme de forma direta.',
+    });
+  }
+
+  const withholding =
+    /\bo que (?:poucos|muitos|ninguém|ainda não)\b[^.!?]{0,80}(?:percebe|ficou claro|sabe|discute|nota)/i.test(text) ||
+    /\b(?:a verdade|o ponto|o detalhe|o problema) (?:incômod[ao]|que ninguém|que pouca gente)\b/i.test(text) ||
+    /\bo preço que se paga\b/i.test(text);
+  if (withholding) {
+    issues.push({
+      type: "ai-tell",
+      severity: "warning",
+      message: "Construção de suspense (valor retido) detectada — diga direto, sem teaser.",
+    });
+  }
+
+  return issues;
+}
+
+export function validatePost(post: string): ValidationIssue[] {
+  const issues: ValidationIssue[] = [...detectAiTells(post)];
 
   if (post.length > MAX_CHARS) {
     issues.push({
@@ -107,23 +147,6 @@ export function validatePost(post: string): ValidationIssue[] {
       type: "emojis",
       severity: "warning",
       message: `${emojis.length} emojis. LinkedIn performa melhor com 0–2 emojis funcionais.`,
-    });
-  }
-
-  const dashes = post.match(/—|–|\s-\s/g) ?? [];
-  if (dashes.length > 0) {
-    issues.push({
-      type: "ai-tell",
-      severity: "warning",
-      message: `${dashes.length} travessão(ões). É marca de IA — troque por vírgula, ponto ou parênteses.`,
-    });
-  }
-
-  if (/\bnão é [^.!?]{1,40}[.!?]\s*[^.!?]{0,30}\bé\b/i.test(post)) {
-    issues.push({
-      type: "ai-tell",
-      severity: "warning",
-      message: 'Possível construção "Não é X. É Y." — reescreva de forma direta.',
     });
   }
 

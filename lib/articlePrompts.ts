@@ -28,7 +28,8 @@ Se o autor for ensaístico e denso, escreva ensaístico e denso. Se for direto e
 Mesmas regras dos posts; valem aqui com mais força ainda porque artigo é texto que será lido com atenção:
 
 - **Travessão (—, –)**: PROIBIDO. Use vírgula, ponto, dois-pontos, parênteses ou ponto e vírgula.
-- **"Não é X. É Y." (e variações em tríade)**: proibido. Diga a coisa de forma direta.
+- **Antítese "Não é X. É Y." — A MARCA MAIS DENUNCIADORA DE IA. PROIBIDA EM QUALQUER COMPRIMENTO.** Inclui todas as variações: "não é um defeito a ser corrigido. É o mecanismo"; "não se trata de X, e sim de Y"; "mais do que X, é Y"; "o problema não é A, é B"; "isso não é neutro: é retirar...". A construção é proibida mesmo quando as duas partes são longas e separadas por ponto, dois-pontos ou ponto e vírgula. Em vez de negar-para-depois-afirmar, AFIRME DIRETAMENTE: escreva "o atrito cognitivo é o mecanismo pelo qual o cérebro se desenvolve" em vez de "o atrito não é um defeito; é o mecanismo".
+- **Construção de suspense / valor retido (withholding)**: PROIBIDA. É quando se anuncia que existe algo importante sem dizê-lo, criando falso suspense. Exemplos a NUNCA escrever: "o que ainda não ficou claro, para muitos, é o preço que se paga por ele"; "o que poucos perceberam é que..."; "há algo que ninguém está discutindo"; "a verdade incômoda é que...". Diga a coisa diretamente, sem teaser.
 - **Tríades de impacto** ("o erro, a dúvida, a reformulação") só se o autor faz isso nas referências.
 - **Frases-sentença soltas para drama** ("O resultado é perturbador."). Evite.
 - **Dois-pontos dramáticos** seguidos de revelação curta. Evite o vício.
@@ -37,7 +38,19 @@ Mesmas regras dos posts; valem aqui com mais força ainda porque artigo é texto
 
 ${BANNED_PHRASES.map((p) => `- "${p}"`).join("\n")}
 
-Antes de finalizar, releia e elimine qualquer travessão e qualquer "Não é X. É Y." que tenha escapado.
+# Coesão entre parágrafos e evidências — OBRIGATÓRIA
+
+Cada novo parágrafo, dado ou exemplo precisa ser AMARRADO ao argumento por uma transição de sentido, não apenas justaposto. O defeito típico de IA é colar uma evidência logo após outra sem costura ("A Estônia faz X. Uma pesquisa da Nord Anglia mostrou Y."), o que soa como uma lista de fatos empilhados. Em vez disso, conecte: mostre POR QUE aquele segundo dado vem na sequência do primeiro, o que ele acrescenta ou confirma. O leitor tem que sentir o fio do raciocínio, nunca um salto entre fontes.
+
+# Título
+
+O título deve ser concreto e ancorado no argumento central do texto, capturando sua estrutura ou tese específica. Evite títulos abstratos, poéticos ou vagos que poderiam servir a qualquer artigo. Se o artigo se organiza em torno de um conceito ou de uma enumeração (ex: três tipos de algo), o título deve refletir isso.
+
+# Autoria e voz própria
+
+O artigo não pode soar como uma "síntese competente e neutra" de fontes. Ele precisa ter um ponto de vista assumido, uma posição que o autor defende. As fontes servem ao argumento DELE, não o substituem. Tome partido com clareza, deixe a tese explícita, e faça as evidências trabalharem a favor dela.
+
+Antes de finalizar, releia o artigo inteiro e CACE: (1) qualquer travessão; (2) qualquer "não é X, é Y" em qualquer comprimento; (3) qualquer frase que prometa um valor sem entregá-lo (suspense); (4) qualquer evidência colada sem transição. Reescreva o que encontrar.
 
 # Guardrails
 

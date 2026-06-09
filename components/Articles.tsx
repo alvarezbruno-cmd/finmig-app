@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   articleReferences,
   articles,
@@ -8,6 +8,7 @@ import {
   sources,
   territories,
 } from "@/lib/storage";
+import { detectAiTells } from "@/lib/validators";
 import type {
   Article,
   ArticleReference,
@@ -155,6 +156,11 @@ export function Articles() {
     articleReferences.remove(id);
     refresh();
   }
+
+  const issues = useMemo(
+    () => (current ? detectAiTells(editing ? draft.body : current.body) : []),
+    [current, editing, draft.body],
+  );
 
   const totalIdeas = texts.reduce((n, t) => n + t.ideas.length, 0);
   const field =
@@ -367,6 +373,26 @@ export function Articles() {
               <pre className="whitespace-pre-wrap break-words font-serif text-[15px] leading-[1.7]">
                 {current.body}
               </pre>
+              {issues.length > 0 && (
+                <div className="mt-4 space-y-1.5">
+                  <div className="text-xs font-medium text-[var(--color-text-dim)]">
+                    Revisão anti-IA ({issues.length})
+                  </div>
+                  {issues.map((issue, i) => (
+                    <div
+                      key={i}
+                      className={
+                        "rounded-md border px-3 py-1.5 text-xs " +
+                        (issue.severity === "error"
+                          ? "border-[var(--color-danger)]/40 bg-[var(--color-danger)]/10 text-[var(--color-danger)]"
+                          : "border-[var(--color-warn)]/40 bg-[var(--color-warn)]/10 text-[var(--color-warn)]")
+                      }
+                    >
+                      {issue.message}
+                    </div>
+                  ))}
+                </div>
+              )}
               <div className="mt-4 flex flex-wrap gap-2">
                 <button
                   onClick={() => copy(`${current.title}\n\n${current.body}`)}

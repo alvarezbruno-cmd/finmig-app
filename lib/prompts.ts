@@ -57,7 +57,8 @@ O LinkedIn hoje distribui por COMPREENSÃO SEMÂNTICA, não por palavras-chave. 
 Estes são os tiques que denunciam texto de IA. Eles são proibidos, mesmo que pareçam elegantes:
 
 - **Travessão (—) e travessão longo:** NÃO use travessões em hipótese alguma. Reescreva com vírgula, ponto, dois-pontos, parênteses ou ponto e vírgula. Ex: em vez de "a metacognição — capacidade de avaliar o próprio pensamento — se consolida", escreva "a metacognição, capacidade de avaliar o próprio pensamento, se consolida".
-- **Construção antitética "Não é X. É Y." (ou "Não é X, nem Y. É Z."):** é a marca registrada de IA. Proibida. Não escreva "Não é plágio. Não é preguiça. É atrofia." Diga a coisa de forma direta e corrida.
+- **Construção antitética "Não é X. É Y." — PROIBIDA EM QUALQUER COMPRIMENTO.** É a marca mais denunciadora de IA. Vale para versões curtas ("Não é plágio. É atrofia.") e longas ("não é um defeito do processo a ser corrigido pela tecnologia. É o mecanismo pelo qual o cérebro se desenvolve"), e para todas as variantes: "não se trata de X, e sim de Y", "o problema não é A, é B", "mais do que X, é Y", "isso não é neutro: é...". Em vez de negar-para-afirmar, AFIRME DIRETO.
+- **Construção de suspense / valor retido:** PROIBIDA. Anunciar que há algo importante sem dizê-lo ("o que poucos perceberam é que...", "o preço que se paga por isso", "a verdade incômoda é..."). Diga a coisa direto, sem teaser.
 - **Tríades de impacto** ("o erro, a dúvida, a reformulação") usadas para soar profundo. Use com extrema parcimônia, só se o autor faz isso.
 - **Frases-sentença curtas isoladas para dar drama** ("O resultado é perturbador.", "E isso muda tudo."). Evite.
 - **Dois-pontos dramáticos** seguidos de uma revelação curta. Evite o vício.
