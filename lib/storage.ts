@@ -617,6 +617,27 @@ export const analytics = {
     cache.analytics = cache.analytics.filter((p) => p.id !== id);
     persist(supabase.from("analytics").delete().eq("id", id));
   },
+  // Atualiza um post existente com o mesmo link; senão cria um novo.
+  // Preserva texto/tema/território já preenchidos quando o import não os traz.
+  upsertByLink(entry: Omit<PublishedPost, "id" | "createdAt">): "added" | "updated" {
+    const existing = entry.link
+      ? cache.analytics.find((p) => p.link && p.link === entry.link)
+      : undefined;
+    if (existing) {
+      analytics.update(existing.id, {
+        metrics: entry.metrics,
+        postedAt: entry.postedAt || existing.postedAt,
+        postedTime: entry.postedTime || existing.postedTime,
+        topRole: entry.topRole ?? existing.topRole,
+        topLocation: entry.topLocation ?? existing.topLocation,
+        topIndustry: entry.topIndustry ?? existing.topIndustry,
+        demographics: entry.demographics ?? existing.demographics,
+      });
+      return "updated";
+    }
+    analytics.add(entry);
+    return "added";
+  },
   performanceProfile(): string {
     const posts = cache.analytics.filter((p) => p.metrics.impressions > 0);
     if (posts.length < 2) return "";

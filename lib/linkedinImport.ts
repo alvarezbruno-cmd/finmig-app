@@ -27,12 +27,42 @@ const MONTHS: Record<string, string> = {
 };
 
 function parsePtDate(value: string): string | undefined {
-  const m = value.match(/(\d{1,2})\s+de\s+(\w+)\.?\s+de\s+(\d{4})/i);
-  if (!m) return undefined;
-  const day = m[1].padStart(2, "0");
-  const month = MONTHS[m[2].slice(0, 3).toLowerCase()];
-  if (!month) return undefined;
-  return `${m[3]}-${month}-${day}`;
+  const v = value.trim();
+  // Serial do Excel (dias desde 1899-12-30), caso a célula seja do tipo data
+  if (/^\d{4,6}$/.test(v)) {
+    const serial = parseInt(v, 10);
+    if (serial > 35000 && serial < 80000) {
+      const d = new Date(Date.UTC(1899, 11, 30) + serial * 86400000);
+      return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+    }
+  }
+  // "27 de mai de 2026" / "27 de maio de 2026" / "27 de mai. de 2026"
+  let m = v.match(/(\d{1,2})\s+de\s+([A-Za-zçÇãéí]+)\.?\s+de\s+(\d{4})/i);
+  if (m) {
+    const month = MONTHS[m[2].slice(0, 3).toLowerCase()];
+    if (month) return `${m[3]}-${month}-${m[1].padStart(2, "0")}`;
+  }
+  // ISO "2026-05-27"
+  m = v.match(/(\d{4})-(\d{2})-(\d{2})/);
+  if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+  // "27/05/2026" ou "27/05/26"
+  m = v.match(/(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
+  if (m) {
+    const year = m[3].length === 2 ? `20${m[3]}` : m[3];
+    return `${year}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}`;
+  }
+  // Última tentativa: deixar o JS interpretar (ex: "May 27, 2026")
+  const d = new Date(v);
+  if (!Number.isNaN(d.getTime())) {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  }
+  return undefined;
+}
+
+function parsePtTime(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  const m = value.match(/(\d{1,2}):(\d{2})/);
+  return m ? `${m[1].padStart(2, "0")}:${m[2]}` : undefined;
 }
 
 function toInt(value: string | undefined): number | undefined {
@@ -91,7 +121,7 @@ export async function parseLinkedInXlsx(buffer: ArrayBuffer): Promise<LinkedInIm
 
   return {
     postedAt: dateRaw ? parsePtDate(dateRaw) : undefined,
-    postedTime: timeRaw && /^\d{1,2}:\d{2}/.test(timeRaw) ? timeRaw : undefined,
+    postedTime: parsePtTime(timeRaw),
     link: get("url da publicação"),
     metrics,
     topRole: get("principal cargo"),

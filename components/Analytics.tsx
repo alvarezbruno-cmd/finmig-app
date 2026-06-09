@@ -318,6 +318,55 @@ export function Analytics() {
     refresh();
   }, []);
 
+  async function importBatch(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []);
+    e.target.value = "";
+    if (files.length === 0) return;
+    setImportMsg(`Processando ${files.length} arquivo(s)…`);
+    let added = 0;
+    let updated = 0;
+    let failed = 0;
+    for (const file of files) {
+      try {
+        const parsed = await parseLinkedInXlsx(await file.arrayBuffer());
+        const result = analytics.upsertByLink({
+          text: "",
+          theme: "",
+          format: "texto",
+          postedAt: parsed.postedAt ?? new Date().toISOString().slice(0, 10),
+          postedTime: parsed.postedTime,
+          metrics: {
+            impressions: parsed.metrics.impressions ?? 0,
+            reached: parsed.metrics.reached ?? 0,
+            reactions: parsed.metrics.reactions ?? 0,
+            comments: parsed.metrics.comments ?? 0,
+            shares: parsed.metrics.shares ?? 0,
+            saves: parsed.metrics.saves ?? 0,
+            profileViews: parsed.metrics.profileViews ?? 0,
+            followers: parsed.metrics.followers ?? 0,
+            sends: parsed.metrics.sends ?? 0,
+          },
+          link: parsed.link,
+          topRole: parsed.topRole,
+          topLocation: parsed.topLocation,
+          topIndustry: parsed.topIndustry,
+          demographics: parsed.demographics,
+        });
+        if (result === "added") added++;
+        else updated++;
+      } catch {
+        failed++;
+      }
+    }
+    refresh();
+    setImportMsg(
+      `Lote concluído: ${added} novo(s), ${updated} atualizado(s)${failed ? `, ${failed} com erro` : ""}. ` +
+        (added > 0
+          ? "Os novos posts ficaram sem texto — clique em Editar para colar o texto de cada um quando puder."
+          : ""),
+    );
+  }
+
   async function importLinkedIn(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = "";
@@ -813,15 +862,29 @@ export function Analytics() {
           <div className="text-sm font-medium">
             {editingId ? "Editar post registrado" : "Registrar post publicado"}
           </div>
-          <label className="cursor-pointer rounded-md bg-[var(--color-accent)] px-3 py-1.5 text-sm font-medium text-white hover:opacity-90">
-            {editingId ? "Atualizar com novo .xlsx" : "Importar arquivo do LinkedIn (.xlsx)"}
-            <input
-              type="file"
-              accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-              onChange={importLinkedIn}
-              className="hidden"
-            />
-          </label>
+          <div className="flex flex-wrap gap-2">
+            <label className="cursor-pointer rounded-md bg-[var(--color-accent)] px-3 py-1.5 text-sm font-medium text-white hover:opacity-90">
+              {editingId ? "Atualizar com novo .xlsx" : "Importar 1 arquivo (.xlsx)"}
+              <input
+                type="file"
+                accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                onChange={importLinkedIn}
+                className="hidden"
+              />
+            </label>
+            {!editingId && (
+              <label className="cursor-pointer rounded-md border border-[var(--color-accent)] px-3 py-1.5 text-sm font-medium text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10">
+                Importar vários de uma vez
+                <input
+                  type="file"
+                  multiple
+                  accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                  onChange={importBatch}
+                  className="hidden"
+                />
+              </label>
+            )}
+          </div>
         </div>
 
         {importMsg && (
