@@ -33,9 +33,9 @@ class Seed:
 SEEDS: list[Seed] = [
     Seed(
         theme="tatica",
-        description="Garfo de cavalo: encontre o lance que ataca rei e torre.",
-        # Brancas jogam Nxc7+ garfando rei em e8 e torre em a8 (validado com o motor).
-        fen="r3k2r/ppp2ppp/8/1N6/8/8/PPP2PPP/4K3 w kq - 0 1",
+        description="Peça pendurada: a dama preta está sem defesa — capture-a.",
+        # Brancas jogam Nxd7 capturando a dama de graça (margem enorme, validado).
+        fen="6k1/1p1q1p1p/8/4N3/8/8/PP3PPP/6K1 w - - 0 1",
         you_play=True,
     ),
     Seed(

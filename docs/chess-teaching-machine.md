@@ -1,9 +1,18 @@
 # Máquina de ensinar (e jogar) xadrez — desenho
 
-Documento de ideias. **Não é para construir agora** — é o registro do desenho para
-não perder o fio. Objetivo do usuário: uma máquina que jogue *e* ensine a jogar
-melhor, **grátis**, **baseada em evidências**, cobrindo **o jogo inteiro** (não só
-finais).
+Documento de ideias e registro do desenho. Objetivo do usuário: uma máquina que
+jogue *e* ensine a jogar melhor, **grátis**, **baseada em evidências**, cobrindo
+**o jogo inteiro** (não só finais).
+
+> **Estado atual:** existem duas implementações do mesmo desenho.
+> - **`chess-coach/`** — protótipo/CLI em Python (referência).
+> - **`app/chess/`** — **versão web para o celular** (Next.js). Stockfish roda no
+>   navegador via WASM (`public/stockfish/`, variante *lite-single* que dispensa
+>   isolamento cross-origin no Safari), a lógica de coaching está em `lib/chess/`,
+>   e a narração usa o Claude via `app/api/chess/narrate`. Abra a rota `/chess`
+>   no navegador do celular. Deploy: o repo já está configurado para a Vercel.
+>   Validada de ponta a ponta (jogar + coaching + repetição espaçada) em viewport
+>   de celular.
 
 ## Princípio central
 
