@@ -9,10 +9,15 @@ jogue *e* ensine a jogar melhor, **grátis**, **baseada em evidências**, cobrin
 > - **`app/chess/`** — **versão web para o celular** (Next.js). Stockfish roda no
 >   navegador via WASM (`public/stockfish/`, variante *lite-single* que dispensa
 >   isolamento cross-origin no Safari), a lógica de coaching está em `lib/chess/`,
->   e a narração usa o Claude via `app/api/chess/narrate`. Abra a rota `/chess`
->   no navegador do celular. Deploy: o repo já está configurado para a Vercel.
->   Validada de ponta a ponta (jogar + coaching + repetição espaçada) em viewport
->   de celular.
+>   e a narração usa o Claude via `app/api/chess/narrate`. Motor + coaching
+>   validados de ponta a ponta em viewport de celular.
+>
+> **Salvamento entre dispositivos:** o progresso (erros + repetição espaçada) é
+> gravado no **Supabase por usuário** (tabela `chess_cards`, RLS), então o
+> `/chess` exige login (o mesmo do app) e sincroniza celular↔computador. Para ter
+> a URL pública e o login funcionando é preciso um deploy único na Vercel +
+> configurar o Supabase — passo a passo em [`chess-deploy.md`](chess-deploy.md)
+> e SQL em [`../supabase/chess_cards.sql`](../supabase/chess_cards.sql).
 
 ## Princípio central
 

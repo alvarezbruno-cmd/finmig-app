@@ -1,19 +1,11 @@
 "use client";
 
 import type { Session } from "@supabase/supabase-js";
-import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { isConfigured, supabase } from "@/lib/supabase";
 import { hasLegacyData, hydrate, migrateFromLocalStorage } from "@/lib/storage";
 
-// Rotas públicas que não dependem do login/Supabase do LinkedEx. O coach de
-// xadrez é autossuficiente (motor no navegador + localStorage), então passa
-// direto pelo gate.
-const PUBLIC_PREFIXES = ["/chess"];
-
 export function AuthGate({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
-  const isPublic = PUBLIC_PREFIXES.some((p) => pathname?.startsWith(p));
   const [authReady, setAuthReady] = useState(false);
   const [session, setSession] = useState<Session | null>(null);
   const [hydrated, setHydrated] = useState(false);
@@ -87,10 +79,6 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
 
   const centerBox =
     "mx-auto mt-24 max-w-sm rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6 text-center";
-
-  if (isPublic) {
-    return <>{children}</>;
-  }
 
   if (!isConfigured) {
     return (

@@ -14,6 +14,7 @@ import {
   addMistake,
   dueCards,
   grade,
+  hydrateChess,
   themeCounts,
   totalCards,
   type Card,
@@ -74,12 +75,14 @@ export default function ChessCoachPage() {
     setMessages((prev) => [m, ...prev].slice(0, 12));
   }, []);
 
-  // Inicializa o motor WASM uma vez.
+  // Inicializa o motor WASM e carrega o progresso do usuário (Supabase) uma vez.
   useEffect(() => {
     const engine = new ChessEngine();
     engineRef.current = engine;
-    engine.init().then(() => setReady(true));
-    refreshStats();
+    Promise.all([engine.init(), hydrateChess()]).then(() => {
+      setReady(true);
+      refreshStats();
+    });
     return () => engine.dispose();
   }, [refreshStats]);
 
